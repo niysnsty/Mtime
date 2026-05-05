@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'input_data_view.dart';
+import 'history_view.dart';
 
 class DashboardView extends StatefulWidget {
     const DashboardView({super.key});
@@ -16,6 +18,18 @@ class _DashboardViewState extends State<DashboardView>{
                     "Mtime",
                     style: TextStyle(fontWeight: FontWeight.bold),
                 ),
+                actions:[
+                    IconButton(
+                        icon: const Icon(Icons.history),
+                        onPressed:(){
+                            Navigator.push(
+                                context, MaterialPageRoute(
+                                    builder: (context) => const HistoryView(),
+                                ),
+                            );
+                        },
+                    ),
+                ],
             ),
             //SingleChildScrollView agar layar bisa di scroll jika kontennya panjang
             body: SingleChildScrollView(
@@ -108,10 +122,10 @@ class _DashboardViewState extends State<DashboardView>{
                             height: 55,
                             child: ElevatedButton.icon(
                                 onPressed: (){
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text("Next Fitur 😊"),
-                                            duration: Duration(seconds:2),                                            
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) => const InputDataView(),
                                         ),
                                     );
                                 },

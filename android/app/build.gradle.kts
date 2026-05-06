@@ -13,6 +13,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Di Kotlin DSL, harus ada kata 'is' di depannya
+        isCoreLibraryDesugaringEnabled = true 
     }
 
     kotlinOptions {
@@ -41,4 +43,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Di Kotlin DSL, gunakan tanda kurung dan kutip ganda
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3") 
 }

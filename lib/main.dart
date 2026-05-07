@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'views/dashboard_view.dart';
+import 'views/main_navigation.dart';
 
 void main() {
-  runApp(const MtimeApp());
+  runApp(const MTimeApp());
 }
 
-class MtimeApp extends StatelessWidget{
-  const MtimeApp({super.key});
+class MTimeApp extends StatelessWidget {
+  const MTimeApp({super.key});
 
   @override
-  Widget build(BuildContext context){
+  Widget build(BuildContext context) {
     return MaterialApp(
-      title: "Mtime",
+      title: 'MTime',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -29,11 +29,10 @@ class MtimeApp extends StatelessWidget{
           centerTitle: true,
         ),
       ),
-      //rute sederhana
       initialRoute: '/',
       routes: {
-        '/' : (context) => const DashboardView(),
-      },   
+        '/': (context) => const MainNavigation(), 
+      },
     );
-  }  
+  }
 }

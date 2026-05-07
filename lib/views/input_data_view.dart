@@ -11,6 +11,7 @@ class InputDataView extends StatefulWidget {
 class _InputDataViewState extends State<InputDataView> {
   DateTime? _tanggalMulai;
   DateTime? _tanggalSelesai;
+  bool _isSaving = false;
   
   final TextEditingController _gejalaController = TextEditingController();
   final TextEditingController _catatanController = TextEditingController();
@@ -41,21 +42,33 @@ class _InputDataViewState extends State<InputDataView> {
       );
       return; 
     }
+    setState(() => _isSaving = true);
 
-    final data = {
-      'tanggal_mulai': _tanggalMulai!.toIso8601String(),
-      'tanggal_selesai': _tanggalSelesai?.toIso8601String(),
-      'gejala': _gejalaController.text.isEmpty ? 'Tidak ada gejala' : _gejalaController.text,
-      'catatan': _catatanController.text,
-    };
+    try {
+      final data = {
+        'tanggal_mulai': _tanggalMulai!.toIso8601String(),
+        'tanggal_selesai': _tanggalSelesai?.toIso8601String(),
+        'gejala': _gejalaController.text.isEmpty ? 'Tidak ada gejala' : _gejalaController.text,
+        'catatan': _catatanController.text,
+      };
 
-    await DatabaseService.instance.insertData(data);
+      await DatabaseService.instance.insertData(data);
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Yeay! Data berhasil disimpan ke Database.')),
-    );
-    Navigator.pop(context); 
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yeay! Data berhasil disimpan ke Database.'), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context); 
+    } catch (e){
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyimpan Data: $e'), backgroundColor: Colors.red),
+      );
+    } finally{
+      if(mounted){
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -102,7 +115,7 @@ class _InputDataViewState extends State<InputDataView> {
             ),
             const SizedBox(height: 20),
 
-            const Text('Tanggal Selesai (Opsional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text('Tanggal Selesai', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             InkWell(
               onTap: () => _pilihTanggal(context, false),
@@ -156,13 +169,19 @@ class _InputDataViewState extends State<InputDataView> {
               height: 55,
               child: ElevatedButton(
                 // Perbaikan di sini: menggunakan arrow function agar lebih aman
-                onPressed: () => _simpanKeDatabase(), 
+                onPressed: _isSaving ? null : () => _simpanKeDatabase(), 
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
-                child: const Text(
-                  'Simpan Data', 
+                child: _isSaving ?
+                const SizedBox(
+                  height: 24, width: 24,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                )
+                
+                : const Text(
+                  'Simpan Data',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
                 ),
               ),

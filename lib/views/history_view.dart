@@ -18,14 +18,21 @@ class _HistoryViewState extends State<HistoryView>{
     _ambilDataDariDatabase();
   }
   Future<void> _ambilDataDariDatabase() async{
+    try{
     final data = await DatabaseService.instance.readAllData();
     setState((){
       _riwayatData = data;
       _isloading = false;
     });
+    }catch (e){
+      setState(() => _isloading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal Memuat Data: $e'), 
+        backgroundColor: Colors.red),
+      );
+    }
   }
-
-    @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -33,14 +40,33 @@ class _HistoryViewState extends State<HistoryView>{
       ),
       body: _isloading?
       const Center(child: CircularProgressIndicator()):
-      _riwayatData.isEmpty? const Center(child: Text('Belum ada Data yang di Catat.')): ListView.builder(
+      _riwayatData.isEmpty? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history_toggle_off, size: 80, color: Colors.pink[200]),
+            const SizedBox(height: 16),
+            const Text(
+              'Belum Ada Riwayat',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black54),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Yuk, Mulai catat siklus pertamamu!',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      )
+      : ListView.builder(
         padding: const EdgeInsets.all(20),
         itemCount: _riwayatData.length,
         itemBuilder: (context, index){
           final data = _riwayatData[index];
           //parsing tanggal dari string Database ke DateTime
           final tglMulai = DateTime.parse(data['tanggal_mulai']);
-          final tglSelesai = data['tanggal_selesai'] != null? DateTime.parse(data['tanggal_selesai']) : null;
+          final tglSelesai = data['tanggal_selesai'] != null?
+          DateTime.parse(data['tanggal_selesai']) : null;
           //mengatur format teks tanggal
           final teksTanggal = tglSelesai != null?
           '${tglMulai.day}/${tglMulai.month}${tglMulai.year} - ${tglSelesai.day}/${tglSelesai.month}/${tglSelesai.year}'
@@ -49,6 +75,7 @@ class _HistoryViewState extends State<HistoryView>{
           final teksDurasi = tglSelesai != null?
           '${tglSelesai.difference(tglMulai).inDays + 1} Hari'
           : 'Sedang Berlangsung...';
+          
           return Card(
             elevation: 2,
             margin: const EdgeInsets.only(bottom: 16),

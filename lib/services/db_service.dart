@@ -43,4 +43,15 @@ class DatabaseService {
     final db = await database; 
     return await db.query('menstruasi', orderBy: 'id DESC');
   }
+
+  Future<int> updateData(Map<String, dynamic> row) async {
+    final db = await database;
+    int id = row['id'];
+    return await db.update(
+      'menstruasi', 
+      row,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }

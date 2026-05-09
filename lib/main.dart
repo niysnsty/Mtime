@@ -1,38 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'views/main_navigation.dart';
+import 'views/register_view.dart';
 
-void main() {
-  runApp(const MTimeApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
+  
+  final prefs = await SharedPreferences.getInstance();
+  final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+
+  runApp(MTimeApp(startScreen: isLoggedIn ? const MainNavigation() : const RegisterView()));
 }
 
 class MTimeApp extends StatelessWidget {
-  const MTimeApp({super.key});
+  final Widget startScreen;
+  const MTimeApp({super.key, required this.startScreen});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MTime',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF48FB1),
-          primary: const Color(0xFFF48FB1),
-          secondary: const Color(0xFFCE93D8),
-          surface: const Color(0xFFFAFAFA),
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF48FB1),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          centerTitle: true,
-        ),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const MainNavigation(), 
-      },
+      title: 'MTime',
+      theme: ThemeData(primaryColor: const Color(0xFF9E4770)),
+      home: startScreen, // Aplikasi akan memilih halaman awal secara otomatis
     );
   }
 }

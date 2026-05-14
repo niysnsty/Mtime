@@ -1,7 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Tambahan untuk memori
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/db_service.dart';
-import 'edit_profil_view.dart'; // Tambahan untuk navigasi ke Edit Profil
+import 'edit_profil_view.dart';
 
 class HariIniView extends StatefulWidget {
   const HariIniView({super.key});
@@ -15,15 +16,15 @@ class _HariIniViewState extends State<HariIniView> {
   Map<String, dynamic>? _haidAktif; 
   
   int _hariKe = 0;
-  String _rataHaid = '...'; 
-  String _rataSiklus = '...'; 
+  String _rataHaid = '7'; 
+  String _rataSiklus = '28'; 
   
   String _prediksiHaid = '-';
   String _masaSubur = '-';
   String _ovulasi = '-';
 
-  // UX: Variabel dinamis untuk nama pengguna
   String _namaUser = 'Sarah';
+  String _photo = ''; 
 
   @override
   void initState() {
@@ -38,51 +39,36 @@ class _HariIniViewState extends State<HariIniView> {
 
   Future<void> _loadData() async {
     final data = await DatabaseService.instance.readAllData();
-    
-    // --- UX: Mengambil nama pengguna dari memori HP ---
     final prefs = await SharedPreferences.getInstance();
-    final namaTersimpan = prefs.getString('nama');
-    if (namaTersimpan != null && namaTersimpan.isNotEmpty) {
-      _namaUser = namaTersimpan;
+    
+    // --- SINKRONISASI DATA DENGAN PROFIL ---
+    String savedNama = prefs.getString('nama') ?? 'Sarah';
+    String savedHaid = prefs.getString('rata_haid') ?? '7';
+    String savedSiklus = prefs.getString('rata_siklus') ?? '28';
+    String savedPhoto = prefs.getString('user_photo') ?? '';
+
+    String validPhoto = '';
+    if (!savedPhoto.startsWith('http')) {
+      validPhoto = savedPhoto;
     }
     
     Map<String, dynamic>? haidBelumSelesai;
     DateTime? haidTerbaru;
-    
-    int totalHaidDays = 0;
-    int validHaidCount = 0;
-    int totalCycleDays = 0;
-    int validCycleCount = 0;
 
     if (data.isNotEmpty) {
       for (int i = 0; i < data.length; i++) {
         if (data[i]['tanggal_selesai'] == null) {
           haidBelumSelesai = data[i];
-        } else {
-          final start = DateTime.parse(data[i]['tanggal_mulai']);
-          final end = DateTime.parse(data[i]['tanggal_selesai']);
-          totalHaidDays += end.difference(start).inDays + 1;
-          validHaidCount++;
-        }
-
-        if (i < data.length - 1) {
-          final currentStart = DateTime.parse(data[i]['tanggal_mulai']);
-          final previousStart = DateTime.parse(data[i+1]['tanggal_mulai']);
-          totalCycleDays += currentStart.difference(previousStart).inDays;
-          validCycleCount++;
+          break; 
         }
       }
 
       haidTerbaru = DateTime.parse(data.first['tanggal_mulai']);
       _hariKe = DateTime.now().difference(haidTerbaru).inDays + 1;
       
-      int avgCycle = validCycleCount > 0 ? (totalCycleDays / validCycleCount).round() : 28;
-      int avgHaid = validHaidCount > 0 ? (totalHaidDays / validHaidCount).round() : 5;
-      
-      _rataHaid = '$avgHaid Hari';
-      _rataSiklus = '$avgCycle Hari';
+      int cycleDays = int.tryParse(savedSiklus) ?? 28;
 
-      final nextHaid = haidTerbaru.add(Duration(days: avgCycle));
+      final nextHaid = haidTerbaru.add(Duration(days: cycleDays));
       _prediksiHaid = '${nextHaid.day} ${_namaBulanSingkat(nextHaid.month)}';
       
       final ovulasiDate = nextHaid.subtract(const Duration(days: 14));
@@ -96,15 +82,17 @@ class _HariIniViewState extends State<HariIniView> {
       } else {
         _masaSubur = '${suburMulai.day} ${_namaBulanSingkat(suburMulai.month)} - ${suburSelesai.day} ${_namaBulanSingkat(suburSelesai.month)}';
       }
-
     } else {
-      _rataHaid = '0 Hari';
-      _rataSiklus = '0 Hari';
+      _hariKe = 0;
     }
 
     if (mounted) {
       setState(() {
         _haidAktif = haidBelumSelesai;
+        _namaUser = savedNama;
+        _rataHaid = savedHaid;       
+        _rataSiklus = savedSiklus;   
+        _photo = validPhoto;         
         _isLoading = false;
       });
     }
@@ -129,6 +117,22 @@ class _HariIniViewState extends State<HariIniView> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haid diakhiri.'), backgroundColor: Colors.purple));
     }
     _loadData(); 
+  }
+
+  Widget _buildAvatar() {
+    if (_photo.isEmpty) {
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: Colors.grey.shade300,
+        child: const Icon(Icons.person, size: 24, color: Colors.white),
+      );
+    } else {
+      return CircleAvatar(
+        radius: 20,
+        backgroundImage: FileImage(File(_photo)),
+        backgroundColor: Colors.transparent,
+      );
+    }
   }
 
   Widget _buildScrollableCard(String title, String mainValue, String subText, {double? progress}) {
@@ -166,8 +170,8 @@ class _HariIniViewState extends State<HariIniView> {
 
     final isSedangHaid = _haidAktif != null;
     double progress = 0.0;
-    if (_rataSiklus != '0 Hari' && _rataSiklus != '...') {
-      int avg = int.tryParse(_rataSiklus.split(' ')[0]) ?? 28;
+    if (_hariKe > 0) {
+      int avg = int.tryParse(_rataSiklus) ?? 28;
       progress = (_hariKe / avg).clamp(0.0, 1.0);
     }
 
@@ -180,7 +184,7 @@ class _HariIniViewState extends State<HariIniView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- UX: HEADER SEKARANG INTERAKTIF & DINAMIS ---
+                  // --- HEADER DENGAN FOTO ASLI ---
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Row(
@@ -190,44 +194,32 @@ class _HariIniViewState extends State<HariIniView> {
                           children: [
                             GestureDetector(
                               onTap: () async {
-                                // UX: Klik foto profil langsung buka menu edit profil
                                 await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView()));
-                                _loadData(); // Muat ulang data kalau namanya diganti
+                                _loadData(); 
                               },
-                              child: const CircleAvatar(
-                                radius: 20,
-                                backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'),
-                              ),
+                              child: _buildAvatar(), 
                             ),
                             const SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // NAMA SEKARANG OTOMATIS SESUAI PROFIL!
                                 Text('Halo, $_namaUser', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                                 const Text('MTime', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
                               ],
                             ),
                           ],
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.settings_outlined, color: Color(0xFF6A304C)), 
-                          onPressed: () async {
-                            // UX: Klik ikon setting juga membuka edit profil
-                            await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView()));
-                            _loadData();
-                          }
-                        ),
                       ],
                     ),
                   ),
 
+                  // --- KARTU HORIZONTAL ---
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        _buildScrollableCard('Siklus Saat Ini', 'Hari ke-$_hariKe', '', progress: progress),
+                        _buildScrollableCard('Siklus Saat Ini', _hariKe > 0 ? 'Hari ke-$_hariKe' : 'Belum Haid', '', progress: progress),
                         _buildScrollableCard('Haid Berikutnya', _prediksiHaid, 'Estimasi kedatangan'),
                         _buildScrollableCard('Masa Subur', _masaSubur, 'Peluang hamil tinggi'),
                         _buildScrollableCard('Hari Ovulasi', _ovulasi, 'Puncak masa subur'),
@@ -236,44 +228,25 @@ class _HariIniViewState extends State<HariIniView> {
                   ),
                   const SizedBox(height: 10),
 
+                  // --- KOTAK RATA-RATA ---
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFF48FB1), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.water_drop_outlined, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text(_rataHaid, style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
+                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFF48FB1), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.water_drop_outlined, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text('$_rataHaid Hari', style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
                         const SizedBox(width: 16),
-                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFFFCA28), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.sync_alt, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text(_rataSiklus, style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
+                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFFFCA28), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.sync_alt, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text('$_rataSiklus Hari', style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 30),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Insight Kesehatan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.pink.withOpacity(0.2))),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFF3E5F5), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.lightbulb_outline, color: Color(0xFFAB47BC))),
-                              const SizedBox(width: 16),
-                              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Tips Hari Ini', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C), fontSize: 14)), SizedBox(height: 4), Text('Minum air putih lebih banyak untuk mengurangi kembung saat fase luteal.', style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.5))])),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  
+                  // Jarak kosong di bawah agar tidak menabrak tombol "Mulai Haid"
                   const SizedBox(height: 100), 
                 ],
               ),
             ),
 
+            // --- TOMBOL MULAI / AKHIRI HAID ---
             Positioned(
               bottom: 20, right: 20,
               child: ElevatedButton.icon(

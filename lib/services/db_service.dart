@@ -62,4 +62,9 @@ class DatabaseService {
     final db = await instance.database;
     db.close();
   }
+  // --- FUNGSI UNTUK MENGHAPUS DATA BERDASARKAN ID ---
+  Future<int> deleteData(int id) async {
+    final db = await instance.database;
+    return await db.delete('riwayat', where: 'id = ?', whereArgs: [id]);
+  }
 }

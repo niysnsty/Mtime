@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Ditambahkan untuk sinkronisasi
+import 'package:shared_preferences/shared_preferences.dart'; 
 import '../services/db_service.dart';
+import 'kalender_view.dart'; 
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -13,19 +14,24 @@ class HistoryView extends StatefulWidget {
 class _HistoryViewState extends State<HistoryView> {
   List<Map<String, dynamic>> _riwayatData = [];
   bool _isLoading = true;
-  String _rataSiklus = '28'; // Default
+  String _rataSiklus = '28'; 
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    AppDataNotifier.refreshSignal.addListener(_loadData);
+  }
+
+  @override
+  void dispose() {
+    AppDataNotifier.refreshSignal.removeListener(_loadData);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
     final data = await DatabaseService.instance.readAllData();
     final prefs = await SharedPreferences.getInstance();
-    
-    // SINKRONISASI: Ambil rata-rata siklus dari profil
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
 
     if (mounted) {
@@ -49,7 +55,6 @@ class _HistoryViewState extends State<HistoryView> {
 
   Widget _buildCustomBar(int haidDays, int cycleDays) {
     if (cycleDays < haidDays) cycleDays = haidDays + 1; 
-    
     int flexHaid = haidDays;
     int flexJeda1 = 7; 
     int flexSubur = 5; 
@@ -93,12 +98,8 @@ class _HistoryViewState extends State<HistoryView> {
   }
 
   Widget _buildGejalaList(String gejalaString) {
-    if (gejalaString.isEmpty || gejalaString.toLowerCase() == 'belum ada gejala') {
-      return const SizedBox.shrink(); 
-    }
-
+    if (gejalaString.isEmpty || gejalaString.toLowerCase() == 'belum ada gejala') return const SizedBox.shrink(); 
     List<String> listGejala = gejalaString.split(',').where((g) => g.trim().isNotEmpty).toList();
-
     if (listGejala.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -114,11 +115,7 @@ class _HistoryViewState extends State<HistoryView> {
           children: listGejala.map((g) {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF0F5),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.pink.shade100)
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pink.shade100)),
               child: Text(g.trim(), style: const TextStyle(fontSize: 11, color: Color(0xFF6A304C))),
             );
           }).toList(),
@@ -127,6 +124,7 @@ class _HistoryViewState extends State<HistoryView> {
     );
   }
 
+  // --- MODIFIKASI: MENU EDIT DENGAN TOMBOL HAPUS RIWAYAT SPESIFIK ---
   void _tampilkanMenuEditSiklus(BuildContext context, Map<String, dynamic> item) {
     DateTime startDate = DateTime.parse(item['tanggal_mulai']);
     DateTime? endDate = item['tanggal_selesai'] != null ? DateTime.parse(item['tanggal_selesai']) : null;
@@ -136,9 +134,7 @@ class _HistoryViewState extends State<HistoryView> {
     );
 
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true, 
+      context: context, backgroundColor: Colors.transparent, isScrollControlled: true, 
       builder: (BuildContext context) {
         return Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -148,45 +144,79 @@ class _HistoryViewState extends State<HistoryView> {
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30))),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
                     const SizedBox(height: 24),
-                    const Text('Edit Catatan Siklus', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Edit Catatan Siklus', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+                        
+                        // TOMBOL HAPUS BARU (IKON TONG SAMPAH MERAH)
+                        IconButton(
+                          icon: const Icon(Icons.delete_forever, color: Colors.red, size: 28),
+                          onPressed: () {
+                            // Dialog Konfirmasi Hapus Data
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                title: const Text('Hapus Riwayat Ini?', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                                content: const Text('Apakah Anda yakin ingin menghapus catatan siklus ini? Tindakan ini tidak dapat dibatalkan.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () async {
+                                      // Panggil fungsi delete berdasarkan ID riwayat
+                                      await DatabaseService.instance.deleteData(item['id']);
+                                      
+                                      // Sinyalkan refresh ke seluruh halaman
+                                      AppDataNotifier.triggerRefresh();
+                                      
+                                      if (context.mounted) {
+                                        Navigator.pop(context); // Tutup Dialog
+                                        Navigator.pop(context); // Tutup BottomSheet
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Catatan riwayat berhasil dihapus'), backgroundColor: Colors.red)
+                                        );
+                                      }
+                                    },
+                                    child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        )
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     const Text('Sesuaikan tanggal dan gejala yang Anda rasakan.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                     const SizedBox(height: 24),
 
                     ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      tileColor: const Color(0xFFFFF0F5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), tileColor: const Color(0xFFFFF0F5),
                       leading: const Icon(Icons.water_drop, color: Color(0xFFF48FB1)),
                       title: const Text('Tanggal Mulai', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.bold)),
                       subtitle: Text(DateFormat('dd MMMM yyyy', 'id_ID').format(startDate), style: const TextStyle(color: Colors.grey)),
                       trailing: const Icon(Icons.edit_calendar, color: Color(0xFF9E4770)),
                       onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context, initialDate: startDate, firstDate: DateTime(2023), lastDate: DateTime.now(),
-                          builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF9E4770))), child: child!),
-                        );
+                        final picked = await showDatePicker(context: context, initialDate: startDate, firstDate: DateTime(2023), lastDate: DateTime.now(), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF9E4770))), child: child!));
                         if (picked != null) setModalState(() => startDate = picked);
                       },
                     ),
                     const SizedBox(height: 12),
 
                     ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      tileColor: const Color(0xFFFFF0F5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)), tileColor: const Color(0xFFFFF0F5),
                       leading: const Icon(Icons.check_circle_outline, color: Color(0xFFCE93D8)),
                       title: const Text('Tanggal Selesai', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.bold)),
                       subtitle: Text(endDate != null ? DateFormat('dd MMMM yyyy', 'id_ID').format(endDate!) : 'Belum selesai (Masih haid)', style: const TextStyle(color: Colors.grey)),
                       trailing: const Icon(Icons.edit_calendar, color: Color(0xFF9E4770)),
                       onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context, initialDate: endDate ?? DateTime.now(), firstDate: startDate, lastDate: DateTime.now(),
-                          builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF9E4770))), child: child!),
-                        );
+                        final picked = await showDatePicker(context: context, initialDate: endDate ?? DateTime.now(), firstDate: startDate, lastDate: DateTime.now(), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF9E4770))), child: child!));
                         if (picked != null) setModalState(() => endDate = picked);
                       },
                     ),
@@ -196,13 +226,7 @@ class _HistoryViewState extends State<HistoryView> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: gejalaController,
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: Kram, Mual, Lelah',
-                        filled: true,
-                        fillColor: const Color(0xFFFFF0F5),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                        prefixIcon: const Icon(Icons.healing, color: Color(0xFF9E4770)),
-                      ),
+                      decoration: InputDecoration(hintText: 'Contoh: Kram, Mual, Lelah', filled: true, fillColor: const Color(0xFFFFF0F5), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none), prefixIcon: const Icon(Icons.healing, color: Color(0xFF9E4770))),
                     ),
                     const SizedBox(height: 30),
 
@@ -213,12 +237,11 @@ class _HistoryViewState extends State<HistoryView> {
                           final updatedItem = Map<String, dynamic>.from(item);
                           updatedItem['tanggal_mulai'] = startDate.toIso8601String();
                           updatedItem['tanggal_selesai'] = endDate?.toIso8601String();
-                          
                           String gejalaBaru = gejalaController.text.trim();
                           updatedItem['gejala'] = gejalaBaru.isEmpty ? 'Belum ada gejala' : gejalaBaru;
                           
                           await DatabaseService.instance.updateData(updatedItem);
-                          _loadData(); 
+                          AppDataNotifier.triggerRefresh();
                           
                           if (context.mounted) {
                             Navigator.pop(context);
@@ -246,11 +269,7 @@ class _HistoryViewState extends State<HistoryView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7F8),
-      appBar: AppBar(
-        title: const Text('MTime', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.black87)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('MTime', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.black87)), backgroundColor: Colors.transparent, elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -261,7 +280,6 @@ class _HistoryViewState extends State<HistoryView> {
             const Text('Pantau perjalanan kesehatan dan keteraturan siklus bulanan Anda secara menyeluruh.', style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.5)),
             const SizedBox(height: 24),
 
-            // --- KOTAK RATA-RATA SIKLUS UTAMA ---
             Container(
               width: double.infinity, padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.pink.withOpacity(0.1))),
@@ -279,21 +297,15 @@ class _HistoryViewState extends State<HistoryView> {
             _riwayatData.isEmpty
                 ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text("Belum ada riwayat siklus.", style: TextStyle(color: Colors.grey))))
                 : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _riwayatData.length,
+                    shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: _riwayatData.length,
                     itemBuilder: (context, index) {
                       final item = _riwayatData[index];
                       final tglMulai = DateTime.parse(item['tanggal_mulai']);
                       final tglSelesai = item['tanggal_selesai'] != null ? DateTime.parse(item['tanggal_selesai']) : null;
-                      
                       int durasiHaid = tglSelesai != null ? tglSelesai.difference(tglMulai).inDays + 1 : 1;
-                      
-                      // PERBAIKAN: Gunakan _rataSiklus dari profil sebagai default durasi siklus bulan ini
                       int durasiSiklus = int.tryParse(_rataSiklus) ?? 28; 
                       
                       if (index > 0) {
-                         // Hitung jarak ke siklus berikutnya (karena data diurutkan dari yang terbaru ke terlama)
                          final nextStart = DateTime.parse(_riwayatData[index - 1]['tanggal_mulai']);
                          durasiSiklus = nextStart.difference(tglMulai).inDays;
                       }
@@ -320,11 +332,7 @@ class _HistoryViewState extends State<HistoryView> {
                                     const SizedBox(width: 8),
                                     GestureDetector(
                                       onTap: () => _tampilkanMenuEditSiklus(context, item),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(8)),
-                                        child: const Icon(Icons.edit, color: Color(0xFF9E4770), size: 18),
-                                      ),
+                                      child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.edit, color: Color(0xFF9E4770), size: 18)),
                                     ),
                                   ],
                                 ),
@@ -334,7 +342,6 @@ class _HistoryViewState extends State<HistoryView> {
                             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('$rangeTgl ($durasiHaid Hari Menstruasi)', style: const TextStyle(color: Colors.grey, fontSize: 12)), const Text('Durasi Siklus', style: TextStyle(color: Colors.grey, fontSize: 12))]),
                             const SizedBox(height: 20),
                             _buildCustomBar(durasiHaid, durasiSiklus),
-                            
                             _buildGejalaList(stringGejala),
                           ],
                         ),

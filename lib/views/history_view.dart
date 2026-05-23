@@ -34,9 +34,28 @@ class _HistoryViewState extends State<HistoryView> {
     final prefs = await SharedPreferences.getInstance();
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
 
+    // ALGORITMA SMART LEARNING UNTUK RIWAYAT
+    int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
+
+    if (data.isNotEmpty) {
+      int totalSiklusDays = 0;
+      int cycleCount = 0;
+      if (data.length >= 2) {
+        for (int i = 0; i < data.length - 1; i++) {
+          DateTime currentStart = DateTime.parse(data[i]['tanggal_mulai']);
+          DateTime prevStart = DateTime.parse(data[i+1]['tanggal_mulai']);
+          totalSiklusDays += currentStart.difference(prevStart).inDays;
+          cycleCount++;
+        }
+        if (cycleCount > 0) {
+          dynamicAvgSiklus = (totalSiklusDays / cycleCount).round();
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _rataSiklus = savedSiklus; 
+        _rataSiklus = dynamicAvgSiklus.toString(); 
         _riwayatData = data;
         _isLoading = false;
       });
@@ -124,7 +143,6 @@ class _HistoryViewState extends State<HistoryView> {
     );
   }
 
-  // --- MODIFIKASI: MENU EDIT DENGAN TOMBOL HAPUS RIWAYAT SPESIFIK ---
   void _tampilkanMenuEditSiklus(BuildContext context, Map<String, dynamic> item) {
     DateTime startDate = DateTime.parse(item['tanggal_mulai']);
     DateTime? endDate = item['tanggal_selesai'] != null ? DateTime.parse(item['tanggal_selesai']) : null;
@@ -152,12 +170,9 @@ class _HistoryViewState extends State<HistoryView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Edit Catatan Siklus', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-                        
-                        // TOMBOL HAPUS BARU (IKON TONG SAMPAH MERAH)
                         IconButton(
                           icon: const Icon(Icons.delete_forever, color: Colors.red, size: 28),
                           onPressed: () {
-                            // Dialog Konfirmasi Hapus Data
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
@@ -169,18 +184,12 @@ class _HistoryViewState extends State<HistoryView> {
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                     onPressed: () async {
-                                      // Panggil fungsi delete berdasarkan ID riwayat
                                       await DatabaseService.instance.deleteData(item['id']);
-                                      
-                                      // Sinyalkan refresh ke seluruh halaman
                                       AppDataNotifier.triggerRefresh();
-                                      
                                       if (context.mounted) {
-                                        Navigator.pop(context); // Tutup Dialog
-                                        Navigator.pop(context); // Tutup BottomSheet
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Catatan riwayat berhasil dihapus'), backgroundColor: Colors.red)
-                                        );
+                                        Navigator.pop(context); 
+                                        Navigator.pop(context); 
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Catatan riwayat berhasil dihapus'), backgroundColor: Colors.red));
                                       }
                                     },
                                     child: const Text('Hapus', style: TextStyle(color: Colors.white)),
@@ -305,9 +314,10 @@ class _HistoryViewState extends State<HistoryView> {
                       int durasiHaid = tglSelesai != null ? tglSelesai.difference(tglMulai).inDays + 1 : 1;
                       int durasiSiklus = int.tryParse(_rataSiklus) ?? 28; 
                       
-                      if (index > 0) {
-                         final nextStart = DateTime.parse(_riwayatData[index - 1]['tanggal_mulai']);
-                         durasiSiklus = nextStart.difference(tglMulai).inDays;
+                      if (index < _riwayatData.length - 1) {
+                         final nextStart = DateTime.parse(_riwayatData[index + 1]['tanggal_mulai']);
+                         // Hitung jarak dari bulan sebelumnya ke bulan ini (mengingat list diurutkan DESC)
+                         durasiSiklus = tglMulai.difference(nextStart).inDays;
                       }
 
                       String rangeTgl = tglSelesai != null 
@@ -325,7 +335,7 @@ class _HistoryViewState extends State<HistoryView> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(_namaBulanLengkap(tglMulai.month), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+                                Text('${_namaBulanLengkap(tglMulai.month)} ${tglMulai.year}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
                                 Row(
                                   children: [
                                     Text('$durasiSiklus Hari', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),

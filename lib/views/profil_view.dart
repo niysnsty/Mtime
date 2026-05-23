@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart'; 
+import 'package:intl/intl.dart';
+
 import '../services/db_service.dart';
 import 'edit_profil_view.dart';
-import 'register_view.dart';
+import 'kalender_view.dart'; 
 
 class ProfilView extends StatefulWidget {
   const ProfilView({super.key});
@@ -17,293 +17,372 @@ class ProfilView extends StatefulWidget {
 }
 
 class _ProfilViewState extends State<ProfilView> {
-  // --- STATE VARIABLES ---
-  bool _notifHaid = true;
-  bool _notifSubur = false;
-  String _nama = 'Sarah';
-  String _email = 'sarah@example.com';
+  bool _isLoading = true;
+  String _namaUser = 'Sarah';
+  String _emailUser = 'sarah@email.com';
   String _rataHaid = '7';
   String _rataSiklus = '28';
-  String _prediksi = '-';
-  String _photo = ''; 
+  String _photo = '';
+  String _prediksiBerikutnya = '-';
+  
+  bool _notifikasiHaid = true;
+  bool _notifikasiSubur = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    AppDataNotifier.refreshSignal.addListener(_loadData);
   }
 
-  // --- LOGIKA MEMUAT DATA ---
+  @override
+  void dispose() {
+    AppDataNotifier.refreshSignal.removeListener(_loadData);
+    super.dispose();
+  }
+
+  String _namaBulanLengkap(int month) {
+    const bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return bulan[month - 1];
+  }
+
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseService.instance.readAllData();
     
-    setState(() {
-      _nama = prefs.getString('nama') ?? 'Sarah';
-      _email = prefs.getString('email') ?? 'sarah@example.com';
-      _rataHaid = prefs.getString('rata_haid') ?? '7';
-      _rataSiklus = prefs.getString('rata_siklus') ?? '28';
-      _notifHaid = prefs.getBool('notif_haid') ?? true;
-      _notifSubur = prefs.getBool('notif_subur') ?? false;
+    String savedNama = prefs.getString('nama') ?? 'Sarah';
+    String savedEmail = prefs.getString('email') ?? 'sarah@email.com';
+    String savedHaid = prefs.getString('rata_haid') ?? '7';
+    String savedSiklus = prefs.getString('rata_siklus') ?? '28';
+    String savedPhoto = prefs.getString('user_photo') ?? '';
+    
+    bool savedNotifHaid = prefs.getBool('notif_haid') ?? true;
+    bool savedNotifSubur = prefs.getBool('notif_subur') ?? false;
 
-      // Logika Sinkronisasi Foto Nyata / Icon Default
-      String savedPhoto = prefs.getString('user_photo') ?? '';
-      if (savedPhoto.startsWith('http')) {
-        _photo = ''; 
-      } else {
-        _photo = savedPhoto; 
+    int dynamicAvgHaid = int.tryParse(savedHaid) ?? 7;
+    int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
+    String prediksiDate = '-';
+
+    if (data.isNotEmpty) {
+      int totalHaidDays = 0, completedHaidCount = 0;
+      for (var item in data) {
+        if (item['tanggal_selesai'] != null) {
+          DateTime start = DateTime.parse(item['tanggal_mulai']);
+          DateTime end = DateTime.parse(item['tanggal_selesai']);
+          totalHaidDays += end.difference(start).inDays + 1;
+          completedHaidCount++;
+        }
+      }
+      if (completedHaidCount > 0) dynamicAvgHaid = (totalHaidDays / completedHaidCount).round();
+
+      int totalSiklusDays = 0, cycleCount = 0;
+      if (data.length >= 2) {
+        for (int i = 0; i < data.length - 1; i++) {
+          DateTime currentStart = DateTime.parse(data[i]['tanggal_mulai']);
+          DateTime prevStart = DateTime.parse(data[i+1]['tanggal_mulai']);
+          totalSiklusDays += currentStart.difference(prevStart).inDays;
+          cycleCount++;
+        }
+        if (cycleCount > 0) dynamicAvgSiklus = (totalSiklusDays / cycleCount).round();
       }
 
-      // Kalkulasi Prediksi Otomatis
-      if (data.isNotEmpty) {
-        DateTime lastStart = DateTime.parse(data.first['tanggal_mulai']);
-        int cycleDays = int.tryParse(_rataSiklus) ?? 28;
-        _prediksi = DateFormat('dd MMMM yyyy', 'id_ID').format(lastStart.add(Duration(days: cycleDays)));
-      }
-    });
-  }
+      DateTime haidTerbaru = DateTime.parse(data.first['tanggal_mulai']);
+      DateTime nextHaid = haidTerbaru.add(Duration(days: dynamicAvgSiklus));
+      prediksiDate = '${nextHaid.day} ${_namaBulanLengkap(nextHaid.month)} ${nextHaid.year}';
+    }
 
-  // --- WIDGET FOTO PROFIL DINAMIS ---
-  Widget _buildAvatar() {
-    if (_photo.isEmpty) {
-      return CircleAvatar(
-        radius: 50,
-        backgroundColor: Colors.grey.shade300,
-        child: const Icon(Icons.person, size: 60, color: Colors.white),
-      );
-    } else {
-      return CircleAvatar(
-        radius: 50,
-        backgroundImage: FileImage(File(_photo)),
-        backgroundColor: Colors.transparent,
-      );
+    if (mounted) {
+      setState(() {
+        _namaUser = savedNama;
+        _emailUser = savedEmail;
+        _rataHaid = dynamicAvgHaid.toString();
+        _rataSiklus = dynamicAvgSiklus.toString();
+        _prediksiBerikutnya = prediksiDate;
+        _photo = savedPhoto;
+        _notifikasiHaid = savedNotifHaid;
+        _notifikasiSubur = savedNotifSubur;
+        _isLoading = false;
+      });
     }
   }
 
-  // --- FITUR: EKSPOR PDF & AUTO OPEN ---
-  Future<void> _eksporDataKePDF(BuildContext context) async {
-    final pdf = pw.Document();
-    final data = await DatabaseService.instance.readAllData();
-
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text('Laporan Riwayat Siklus MTime', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 10),
-            pw.Text('Nama Pengguna: $_nama'),
-            pw.Text('Email: $_email'),
-            pw.SizedBox(height: 20),
-            pw.Table.fromTextArray(
-              context: context,
-              data: <List<String>>[
-                <String>['No', 'Tanggal Mulai', 'Tanggal Selesai', 'Gejala'],
-                ...List.generate(data.length, (index) {
-                  final item = data[index];
-                  return [
-                    '${index + 1}',
-                    item['tanggal_mulai'].toString().substring(0, 10),
-                    item['tanggal_selesai']?.toString().substring(0, 10) ?? 'Berjalan',
-                    item['gejala'] ?? '-'
-                  ];
-                })
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-
+  // --- FUNGSI UPDATE: GENERATE & DOWNLOAD PDF LANGSUNG KE PENYIMPANAN ---
+  Future<void> _buatDanUnduhPDF() async {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menyimpan PDF ke folder Download...'), backgroundColor: Color(0xFF9E4770)));
+    
     try {
-      final output = await getApplicationDocumentsDirectory();
-      final filePath = "${output.path}/Laporan_MTime_$_nama.pdf";
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
+      final data = await DatabaseService.instance.readAllData();
+      final pdf = pw.Document();
 
-      await OpenFilex.open(filePath); 
+      // Mendesain Halaman PDF
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Laporan Riwayat Siklus Menstruasi', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.pink800)),
+                pw.SizedBox(height: 10),
+                pw.Text('Nama: $_namaUser', style: const pw.TextStyle(fontSize: 14)),
+                pw.Text('Tanggal Cetak: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 14)),
+                pw.SizedBox(height: 20),
+                pw.Divider(),
+                pw.SizedBox(height: 20),
+                
+                if (data.isEmpty)
+                  pw.Text('Belum ada riwayat siklus yang tercatat.', style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey))
+                else
+                  pw.TableHelper.fromTextArray(
+                    context: context,
+                    headerDecoration: const pw.BoxDecoration(color: PdfColors.pink100),
+                    headerHeight: 40,
+                    cellHeight: 30,
+                    cellAlignments: {
+                      0: pw.Alignment.centerLeft,
+                      1: pw.Alignment.centerLeft,
+                      2: pw.Alignment.centerLeft,
+                    },
+                    headers: ['Tanggal Mulai', 'Tanggal Selesai', 'Gejala Tercatat'],
+                    data: data.map((item) {
+                      DateTime start = DateTime.parse(item['tanggal_mulai']);
+                      String strMulai = DateFormat('dd MMM yyyy').format(start);
+                      
+                      String strSelesai = 'Masih haid';
+                      if (item['tanggal_selesai'] != null) {
+                        DateTime end = DateTime.parse(item['tanggal_selesai']);
+                        strSelesai = DateFormat('dd MMM yyyy').format(end);
+                      }
+                      
+                      String gejala = item['gejala'] ?? '-';
+                      
+                      return [strMulai, strSelesai, gejala];
+                    }).toList(),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+
+      // Simpan langsung ke folder Download di memori internal Android
+      final bytes = await pdf.save();
+      final dir = Directory('/storage/emulated/0/Download'); // Path resmi folder Download Android
+      
+      // Buat folder jika anehnya tidak ada (jarang terjadi)
+      if (!await dir.exists()) {
+         await dir.create(recursive: true);
+      }
+      
+      // Beri nama unik berdasarkan waktu agar file sebelumnya tidak tertimpa
+      String timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final file = File('${dir.path}/MTime_Riwayat_$timestamp.pdf');
+      
+      await file.writeAsBytes(bytes);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF Berhasil Dibuat dan Dibuka'), backgroundColor: Colors.blue),
+          SnackBar(
+            content: Text('Sukses! PDF tersimpan di folder Download:\n${file.path}'), 
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          )
         );
       }
+
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuat PDF: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan PDF. Error: $e'), 
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          )
+        );
+      }
     }
   }
 
-  // --- UX: DIALOG KONFIRMASI (HAPUS DATA/AKUN) ---
-  void _showConfirmDialog({required String title, required String content, required VoidCallback onConfirm, bool isDanger = false}) {
+  void _konfirmasiHapusData() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-        content: Text(content),
+        title: const Text('Hapus Seluruh Data?', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: const Text('Semua riwayat siklus, gejala, dan catatan Anda akan dihapus secara permanen dari perangkat ini. Lanjutkan?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
-            onPressed: onConfirm,
-            style: ElevatedButton.styleFrom(backgroundColor: isDanger ? Colors.red : const Color(0xFF9E4770)),
-            child: const Text('Ya, Lanjutkan', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await DatabaseService.instance.deleteAllData();
+              AppDataNotifier.triggerRefresh();
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seluruh data riwayat berhasil dihapus.'), backgroundColor: Colors.red));
+              }
+            },
+            child: const Text('Hapus Data', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  // --- UI BUILDER UTAMA ---
+  void _konfirmasiHapusAkun() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Hapus Akun?', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: const Text('Ini akan menghapus seluruh data riwayat beserta profil Anda (Nama, Email, Preferensi) dan mengatur ulang aplikasi ke kondisi awal.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await DatabaseService.instance.deleteAllData();
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+              AppDataNotifier.triggerRefresh();
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun dan data berhasil di-reset.'), backgroundColor: Colors.red));
+              }
+            },
+            child: const Text('Hapus Akun', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    if (_photo.isEmpty || _photo.startsWith('http')) {
+      return Container(
+        width: 100, height: 100,
+        decoration: BoxDecoration(color: Colors.pink.shade100, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.2), blurRadius: 10)]),
+        child: const Icon(Icons.person, size: 50, color: Colors.white),
+      );
+    } else {
+      return Container(
+        width: 100, height: 100,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.2), blurRadius: 10)], image: DecorationImage(image: FileImage(File(_photo)), fit: BoxFit.cover)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Scaffold(backgroundColor: Color(0xFFFFF7F8), body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7F8),
       appBar: AppBar(
-        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-        elevation: 0,
-        backgroundColor: const Color(0xFFFFF7F8),
+        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.black87)),
+        backgroundColor: Colors.transparent, elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.edit, color: Color(0xFF9E4770)), onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView())); _loadData(); }),
+        ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            
-            // --- HEADER FOTO & IDENTITAS ---
             Center(
-              child: InkWell(
-                onTap: () async {
-                  bool? updated = await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView()));
-                  if (updated == true) _loadData();
-                },
-                child: Column(
-                  children: [
-                    _buildAvatar(), 
-                    const SizedBox(height: 12),
-                    Text(_nama, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-                    Text(_email, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  _buildAvatar(),
+                  const SizedBox(height: 16),
+                  Text(_namaUser, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+                  const SizedBox(height: 4),
+                  Text(_emailUser, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+
+            Align(alignment: Alignment.centerLeft, child: Text('DATA SIKLUS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
+              child: Column(
+                children: [
+                  ListTile(leading: const Icon(Icons.water_drop_outlined, color: Color(0xFFF48FB1)), title: const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text('$_rataHaid Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFFFFCA28)), title: const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text('$_rataSiklus Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  ListTile(leading: const Icon(Icons.event_available, color: Color(0xFFCE93D8)), title: const Text('Prediksi Berikutnya', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text(_prediksiBerikutnya, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            Align(alignment: Alignment.centerLeft, child: Text('PREFERENSI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Notifikasi Haid', style: TextStyle(color: Color(0xFF6A304C))), secondary: const Icon(Icons.notifications_active_outlined, color: Color(0xFFF48FB1)), activeColor: const Color(0xFF9E4770),
+                    value: _notifikasiHaid, 
+                    onChanged: (bool value) async { 
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('notif_haid', value);
+                      setState(() { _notifikasiHaid = value; }); 
+                    },
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  SwitchListTile(
+                    title: const Text('Notifikasi Masa Subur', style: TextStyle(color: Color(0xFF6A304C))), secondary: const Icon(Icons.favorite_border, color: Color(0xFFF48FB1)), activeColor: const Color(0xFF9E4770),
+                    value: _notifikasiSubur, 
+                    onChanged: (bool value) async { 
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('notif_subur', value);
+                      setState(() { _notifikasiSubur = value; }); 
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            Align(alignment: Alignment.centerLeft, child: Text('KEAMANAN & AKUN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.picture_as_pdf, color: Colors.grey), 
+                    title: const Text('Ekspor Data (PDF)', style: TextStyle(color: Color(0xFF6A304C))), 
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                    onTap: _buatDanUnduhPDF 
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  ListTile(
+                    leading: const Icon(Icons.delete_sweep, color: Colors.redAccent), 
+                    title: const Text('Hapus Seluruh Data', style: TextStyle(color: Colors.redAccent)), 
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                    onTap: _konfirmasiHapusData
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  ListTile(
+                    leading: const Icon(Icons.person_off, color: Colors.red), 
+                    title: const Text('Hapus Akun', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                    onTap: _konfirmasiHapusAkun
+                  ),
+                ],
               ),
             ),
             
-            _buildSectionTitle('DATA SIKLUS'),
-            
-            // UX UPDATE: Rata-rata Haid bisa diklik, menuju Edit Profil
-            _buildListTile(
-              Icons.water_drop_outlined, 
-              'Rata-rata Haid ($_rataHaid Hari)',
-              onTap: () async {
-                bool? updated = await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView()));
-                if (updated == true) _loadData();
-              }
-            ),
-
-            // UX UPDATE: Rata-rata Siklus bisa diklik, menuju Edit Profil
-            _buildListTile(
-              Icons.calendar_month_outlined, 
-              'Rata-rata Siklus ($_rataSiklus Hari)',
-              onTap: () async {
-                bool? updated = await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView()));
-                if (updated == true) _loadData();
-              }
-            ),
-
-            // UX UPDATE: Prediksi Berikutnya tidak pakai icon '>', menampilkan pesan info jika diklik
-            _buildListTile(
-              Icons.date_range_outlined, 
-              'Prediksi Berikutnya ($_prediksi)',
-              trailing: const SizedBox.shrink(), // Menghilangkan icon panah
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Prediksi dihitung otomatis berdasarkan rata-rata siklus Anda.'),
-                    backgroundColor: Color(0xFF9E4770),
-                  ),
-                );
-              }
-            ),
-
-            _buildSectionTitle('PREFERENSI'),
-            _buildListTile(
-              Icons.notifications_none, 
-              'Notifikasi Haid', 
-              trailing: Switch(
-                value: _notifHaid, 
-                activeColor: Colors.pinkAccent, 
-                onChanged: (v) async {
-                  setState(() => _notifHaid = v);
-                  (await SharedPreferences.getInstance()).setBool('notif_haid', v);
-                }
-              )
-            ),
-            _buildListTile(
-              Icons.favorite_border, 
-              'Notifikasi Masa Subur', 
-              trailing: Switch(
-                value: _notifSubur, 
-                activeColor: Colors.pinkAccent, 
-                onChanged: (v) async {
-                  setState(() => _notifSubur = v);
-                  (await SharedPreferences.getInstance()).setBool('notif_subur', v);
-                }
-              )
-            ),
-
-            _buildSectionTitle('KEAMANAN & AKUN'),
-            _buildListTile(Icons.picture_as_pdf_outlined, 'Ekspor Data (PDF)', onTap: () => _eksporDataKePDF(context)),
-            _buildListTile(Icons.refresh, 'Hapus Semua Data', onTap: () {
-              _showConfirmDialog(
-                title: 'Hapus Semua Riwayat?',
-                content: 'Tindakan ini akan menghapus seluruh data haid Anda dari aplikasi secara permanen.',
-                onConfirm: () async {
-                  await DatabaseService.instance.deleteAllData();
-                  Navigator.pop(context);
-                  _loadData();
-                }
-              );
-            }),
-            _buildListTile(
-              Icons.delete_outline, 
-              'Hapus Akun', 
-              iconColor: Colors.red,
-              onTap: () {
-                _showConfirmDialog(
-                  title: 'Hapus Akun & Keluar?',
-                  content: 'Anda akan keluar dari aplikasi dan semua data profil akan direset kembali seperti awal.',
-                  isDanger: true,
-                  onConfirm: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.clear(); 
-                    await DatabaseService.instance.deleteAllData(); 
-                    if (mounted) {
-                      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const RegisterView()), (route) => false);
-                    }
-                  }
-                );
-              }
-            ),
-            const SizedBox(height: 50),
+            const SizedBox(height: 100),
           ],
         ),
       ),
-    );
-  }
-
-  // --- WIDGET BANTUAN UI ---
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, top: 24, bottom: 8),
-      child: Text(title, style: const TextStyle(color: Color(0xFF9E4770), fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2)),
-    );
-  }
-
-  Widget _buildListTile(IconData icon, String title, {Widget? trailing, Color? iconColor, VoidCallback? onTap}) {
-    return ListTile(
-      onTap: onTap,
-      leading: Icon(icon, color: iconColor ?? const Color(0xFF9E4770), size: 22),
-      title: Text(title, style: const TextStyle(color: Color(0xFF6A304C), fontSize: 14)),
-      trailing: trailing ?? const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/db_service.dart';
 import 'edit_profil_view.dart';
+import 'kalender_view.dart'; // Import untuk menggunakan sinyal refresh global
 
 class HariIniView extends StatefulWidget {
   const HariIniView({super.key});
@@ -14,7 +15,6 @@ class HariIniView extends StatefulWidget {
 class _HariIniViewState extends State<HariIniView> {
   bool _isLoading = true;
   Map<String, dynamic>? _haidAktif; 
-  
   int _hariKe = 0;
   String _rataHaid = '7'; 
   String _rataSiklus = '28'; 
@@ -28,6 +28,13 @@ class _HariIniViewState extends State<HariIniView> {
   void initState() {
     super.initState();
     _loadData();
+    AppDataNotifier.refreshSignal.addListener(_loadData);
+  }
+
+  @override
+  void dispose() {
+    AppDataNotifier.refreshSignal.removeListener(_loadData);
+    super.dispose();
   }
 
   String _namaBulanSingkat(int month) {
@@ -50,7 +57,46 @@ class _HariIniViewState extends State<HariIniView> {
     Map<String, dynamic>? haidBelumSelesai;
     DateTime? haidTerbaru;
 
+    // --- ALGORITMA "SMART LEARNING" DIMULAI DI SINI ---
+    int dynamicAvgHaid = int.tryParse(savedHaid) ?? 7;
+    int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
+
     if (data.isNotEmpty) {
+      // 1. Kalkulasi Rata-rata Durasi Haid Real-time
+      int totalHaidDays = 0;
+      int completedHaidCount = 0;
+      for (var item in data) {
+        if (item['tanggal_selesai'] != null) {
+          DateTime start = DateTime.parse(item['tanggal_mulai']);
+          DateTime end = DateTime.parse(item['tanggal_selesai']);
+          totalHaidDays += end.difference(start).inDays + 1;
+          completedHaidCount++;
+        }
+      }
+      // Jika sudah ada riwayat haid yang selesai, ganti angka patokan profil dengan angka asli
+      if (completedHaidCount > 0) {
+        dynamicAvgHaid = (totalHaidDays / completedHaidCount).round();
+      }
+
+      // 2. Kalkulasi Rata-rata Durasi Siklus Real-time
+      int totalSiklusDays = 0;
+      int cycleCount = 0;
+      // Butuh minimal 2 bulan data untuk menghitung 1 jarak siklus
+      if (data.length >= 2) {
+        for (int i = 0; i < data.length - 1; i++) {
+          DateTime currentStart = DateTime.parse(data[i]['tanggal_mulai']);
+          DateTime prevStart = DateTime.parse(data[i+1]['tanggal_mulai']);
+          totalSiklusDays += currentStart.difference(prevStart).inDays;
+          cycleCount++;
+        }
+        // Jika sudah ada jarak antar bulan, ganti angka patokan profil dengan rata-rata asli
+        if (cycleCount > 0) {
+          dynamicAvgSiklus = (totalSiklusDays / cycleCount).round();
+        }
+      }
+      // --- ALGORITMA SELESAI ---
+
+      // Cari apakah ada haid yang sedang berjalan (tanggal_selesai == null)
       for (int i = 0; i < data.length; i++) {
         if (data[i]['tanggal_selesai'] == null) {
           haidBelumSelesai = data[i];
@@ -61,8 +107,8 @@ class _HariIniViewState extends State<HariIniView> {
       haidTerbaru = DateTime.parse(data.first['tanggal_mulai']);
       _hariKe = DateTime.now().difference(haidTerbaru).inDays + 1;
       
-      int cycleDays = int.tryParse(savedSiklus) ?? 28;
-      final nextHaid = haidTerbaru.add(Duration(days: cycleDays));
+      // Hitung prediksi berdasarkan Rata-rata Siklus yang BARU (Dinamis)
+      final nextHaid = haidTerbaru.add(Duration(days: dynamicAvgSiklus));
       _prediksiHaid = '${nextHaid.day} ${_namaBulanSingkat(nextHaid.month)}';
       
       final ovulasiDate = nextHaid.subtract(const Duration(days: 14));
@@ -84,8 +130,9 @@ class _HariIniViewState extends State<HariIniView> {
       setState(() {
         _haidAktif = haidBelumSelesai;
         _namaUser = savedNama;
-        _rataHaid = savedHaid;       
-        _rataSiklus = savedSiklus;   
+        // Gunakan nilai dinamis untuk ditampilkan di kartu
+        _rataHaid = dynamicAvgHaid.toString();       
+        _rataSiklus = dynamicAvgSiklus.toString();   
         _photo = validPhoto;         
         _isLoading = false;
       });
@@ -103,14 +150,13 @@ class _HariIniViewState extends State<HariIniView> {
         'catatan': '',
       };
       await DatabaseService.instance.insertData(newData);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haid dimulai!'), backgroundColor: Colors.pink));
     } else {
       final updateData = Map<String, dynamic>.from(_haidAktif!);
       updateData['tanggal_selesai'] = DateTime.now().toIso8601String();
       await DatabaseService.instance.updateData(updateData);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Haid diakhiri.'), backgroundColor: Colors.purple));
     }
-    _loadData(); 
+    
+    AppDataNotifier.triggerRefresh();
   }
 
   Widget _buildAvatar() {
@@ -123,14 +169,8 @@ class _HariIniViewState extends State<HariIniView> {
 
   Widget _buildScrollableCard(String title, String mainValue, String subText, {double? progress}) {
     return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 16, bottom: 10, top: 5),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
-        border: Border.all(color: Colors.pink.withOpacity(0.1)),
-      ),
+      width: 220, margin: const EdgeInsets.only(right: 16, bottom: 10, top: 5), padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))], border: Border.all(color: Colors.pink.withOpacity(0.1))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -181,11 +221,9 @@ class _HariIniViewState extends State<HariIniView> {
                   ),
 
                   SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        // LOGIKA BARU KARTU STATUS
                         isSedangHaid
                             ? _buildScrollableCard('Sedang Menstruasi', 'Haid Hari ke-$_hariKe', 'Tetap terhidrasi', progress: progress)
                             : _buildScrollableCard('Status Siklus', 'Selesai Haid', 'Rata-rata $_rataSiklus Hari'),

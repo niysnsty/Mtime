@@ -44,9 +44,29 @@ class _KalenderViewState extends State<KalenderView> {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseService.instance.readAllData();
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
+    
+    // --- ALGORITMA SMART LEARNING UNTUK KALENDER ---
+    int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
+
+    if (data.isNotEmpty) {
+      int totalSiklusDays = 0;
+      int cycleCount = 0;
+      if (data.length >= 2) {
+        for (int i = 0; i < data.length - 1; i++) {
+          DateTime currentStart = DateTime.parse(data[i]['tanggal_mulai']);
+          DateTime prevStart = DateTime.parse(data[i+1]['tanggal_mulai']);
+          totalSiklusDays += currentStart.difference(prevStart).inDays;
+          cycleCount++;
+        }
+        if (cycleCount > 0) {
+          dynamicAvgSiklus = (totalSiklusDays / cycleCount).round();
+        }
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _rataSiklus = int.tryParse(savedSiklus) ?? 28;
+        _rataSiklus = dynamicAvgSiklus; // Sekarang menggunakan nilai 34 Hari (Dinamis)
         _riwayatData = data;
         _isLoading = false;
       });
@@ -109,6 +129,7 @@ class _KalenderViewState extends State<KalenderView> {
     if (_riwayatData.isEmpty) return null;
     final startTerbaru = DateTime.parse(_riwayatData.first['tanggal_mulai']);
     final startDate = DateTime(startTerbaru.year, startTerbaru.month, startTerbaru.day);
+    // nextHaid sekarang dikalkulasi menggunakan siklus 34 hari
     final nextHaid = startDate.add(Duration(days: _rataSiklus));
     return nextHaid.subtract(const Duration(days: 14));
   }
@@ -211,20 +232,17 @@ class _KalenderViewState extends State<KalenderView> {
   }
 
   Widget _buildCustomDay(DateTime day, {bool isSelected = false, bool isToday = false}) {
-    // Styling dasar untuk angka
     TextStyle textStyle = TextStyle(
       color: _isHariHaid(day) ? Colors.white : const Color(0xFF6A304C),
       fontWeight: (isToday || isSelected) ? FontWeight.bold : FontWeight.normal,
     );
 
-    // Styling untuk container hari
     return Container(
-      margin: const EdgeInsets.all(5.0), // Margin sedikit dikurangi agar lingkaran lebih besar
+      margin: const EdgeInsets.all(5.0), 
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: _isHariHaid(day) ? const Color(0xFFF48FB1) : (isSelected ? const Color(0xFFFFF0F5) : Colors.transparent),
         shape: BoxShape.circle,
-        // Border ungu untuk hari ini, dipertebal agar terlihat jelas
         border: isToday 
             ? Border.all(color: const Color(0xFF9E4770), width: 2.5) 
             : (isSelected && !_isHariHaid(day) ? Border.all(color: const Color(0xFF9E4770).withOpacity(0.5), width: 1.5) : null),
@@ -234,7 +252,6 @@ class _KalenderViewState extends State<KalenderView> {
         children: [
           Text('${day.day}', style: textStyle),
           const SizedBox(height: 1),
-          // Indikator titik di bawah angka
           if (!_isHariHaid(day)) ...[
              if (_isMasaSubur(day)) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFFFFCA28), shape: BoxShape.circle)),
              if (_isOvulasi(day)) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle)),
@@ -291,7 +308,6 @@ class _KalenderViewState extends State<KalenderView> {
             Text(_selectedDay != null ? DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDay!) : 'Pilih Tanggal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
             const SizedBox(height: 12),
             
-            // --- LOGIKA UI KOTAK RIWAYAT YANG BARU ---
             _selectedDay != null && _isHariHaid(_selectedDay!)
                 ? GestureDetector(
                     onTap: () async {
@@ -316,7 +332,6 @@ class _KalenderViewState extends State<KalenderView> {
                       ),
                     ),
                   )
-                // KOTAK ABU-ABU UNTUK HARI BIASA (AGAR LAYOUT TIDAK MELOMPAT)
                 : Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),

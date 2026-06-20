@@ -18,8 +18,7 @@ class ProfilView extends StatefulWidget {
 
 class _ProfilViewState extends State<ProfilView> {
   bool _isLoading = true;
-  String _namaUser = 'Sarah';
-  String _emailUser = 'sarah@email.com';
+  String _namaUser = 'Pengguna';
   String _rataHaid = '7';
   String _rataSiklus = '28';
   String _photo = '';
@@ -27,6 +26,9 @@ class _ProfilViewState extends State<ProfilView> {
   
   bool _notifikasiHaid = true;
   bool _notifikasiSubur = false;
+  
+  // Variabel untuk menyimpan status on/off sidik jari
+  bool _isFingerprintActive = true; 
 
   @override
   void initState() {
@@ -50,14 +52,16 @@ class _ProfilViewState extends State<ProfilView> {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseService.instance.readAllData();
     
-    String savedNama = prefs.getString('nama') ?? 'Sarah';
-    String savedEmail = prefs.getString('email') ?? 'sarah@email.com';
+    String savedNama = prefs.getString('nama') ?? 'Pengguna';
     String savedHaid = prefs.getString('rata_haid') ?? '7';
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
     String savedPhoto = prefs.getString('user_photo') ?? '';
     
     bool savedNotifHaid = prefs.getBool('notif_haid') ?? true;
     bool savedNotifSubur = prefs.getBool('notif_subur') ?? false;
+    
+    // Membaca status sidik jari dari memori
+    bool savedFingerprint = prefs.getBool('is_biometric_enabled') ?? true;
 
     int dynamicAvgHaid = int.tryParse(savedHaid) ?? 7;
     int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
@@ -94,19 +98,18 @@ class _ProfilViewState extends State<ProfilView> {
     if (mounted) {
       setState(() {
         _namaUser = savedNama;
-        _emailUser = savedEmail;
         _rataHaid = dynamicAvgHaid.toString();
         _rataSiklus = dynamicAvgSiklus.toString();
         _prediksiBerikutnya = prediksiDate;
         _photo = savedPhoto;
         _notifikasiHaid = savedNotifHaid;
         _notifikasiSubur = savedNotifSubur;
+        _isFingerprintActive = savedFingerprint; // Memperbarui status toggle di layar
         _isLoading = false;
       });
     }
   }
 
-  // --- FUNGSI UPDATE: GENERATE & DOWNLOAD PDF LANGSUNG KE PENYIMPANAN ---
   Future<void> _buatDanUnduhPDF() async {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menyimpan PDF ke folder Download...'), backgroundColor: Color(0xFF9E4770)));
     
@@ -114,7 +117,6 @@ class _ProfilViewState extends State<ProfilView> {
       final data = await DatabaseService.instance.readAllData();
       final pdf = pw.Document();
 
-      // Mendesain Halaman PDF
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -165,16 +167,13 @@ class _ProfilViewState extends State<ProfilView> {
         ),
       );
 
-      // Simpan langsung ke folder Download di memori internal Android
       final bytes = await pdf.save();
-      final dir = Directory('/storage/emulated/0/Download'); // Path resmi folder Download Android
+      final dir = Directory('/storage/emulated/0/Download'); 
       
-      // Buat folder jika anehnya tidak ada (jarang terjadi)
       if (!await dir.exists()) {
          await dir.create(recursive: true);
       }
       
-      // Beri nama unik berdasarkan waktu agar file sebelumnya tidak tertimpa
       String timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final file = File('${dir.path}/MTime_Riwayat_$timestamp.pdf');
       
@@ -212,8 +211,7 @@ class _ProfilViewState extends State<ProfilView> {
         content: const Text('Semua riwayat siklus, gejala, dan catatan Anda akan dihapus secara permanen dari perangkat ini. Lanjutkan?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          ElevButtonHapus(
             onPressed: () async {
               await DatabaseService.instance.deleteAllData();
               AppDataNotifier.triggerRefresh();
@@ -222,7 +220,7 @@ class _ProfilViewState extends State<ProfilView> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Seluruh data riwayat berhasil dihapus.'), backgroundColor: Colors.red));
               }
             },
-            child: const Text('Hapus Data', style: TextStyle(color: Colors.white)),
+            text: 'Hapus Data',
           ),
         ],
       ),
@@ -235,11 +233,10 @@ class _ProfilViewState extends State<ProfilView> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Hapus Akun?', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-        content: const Text('Ini akan menghapus seluruh data riwayat beserta profil Anda (Nama, Email, Preferensi) dan mengatur ulang aplikasi ke kondisi awal.'),
+        content: const Text('Ini akan menghapus seluruh data riwayat beserta profil Anda (Nama, Preferensi) dan mengatur ulang aplikasi ke kondisi awal.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          ElevButtonHapus(
             onPressed: () async {
               await DatabaseService.instance.deleteAllData();
               final prefs = await SharedPreferences.getInstance();
@@ -250,7 +247,7 @@ class _ProfilViewState extends State<ProfilView> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun dan data berhasil di-reset.'), backgroundColor: Colors.red));
               }
             },
-            child: const Text('Hapus Akun', style: TextStyle(color: Colors.white)),
+            text: 'Hapus Akun',
           ),
         ],
       ),
@@ -297,7 +294,7 @@ class _ProfilViewState extends State<ProfilView> {
                   const SizedBox(height: 16),
                   Text(_namaUser, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
                   const SizedBox(height: 4),
-                  Text(_emailUser, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                  const Text('Aplikasi Mode Luring', style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             ),
@@ -355,6 +352,24 @@ class _ProfilViewState extends State<ProfilView> {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
               child: Column(
                 children: [
+                  // --- TAMBAHAN SWITCH SIDIK JARI ---
+                  SwitchListTile(
+                    secondary: const Icon(Icons.fingerprint, color: Color(0xFF9E4770)),
+                    title: const Text('Kunci Aplikasi', style: TextStyle(color: Color(0xFF6A304C))),
+                    subtitle: const Text('Gunakan sidik jari saat membuka aplikasi', style: TextStyle(fontSize: 12)),
+                    activeColor: const Color(0xFF9E4770),
+                    value: _isFingerprintActive,
+                    onChanged: (bool value) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('is_biometric_enabled', value);
+                      setState(() {
+                        _isFingerprintActive = value;
+                      });
+                    },
+                  ),
+                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                  // --- AKHIR TAMBAHAN SWITCH SIDIK JARI ---
+                  
                   ListTile(
                     leading: const Icon(Icons.picture_as_pdf, color: Colors.grey), 
                     title: const Text('Ekspor Data (PDF)', style: TextStyle(color: Color(0xFF6A304C))), 
@@ -383,6 +398,23 @@ class _ProfilViewState extends State<ProfilView> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Widget Bantuan Ekstra untuk Tombol Dialog
+class ElevButtonHapus extends StatelessWidget {
+  final VoidCallback onPressed;
+  final String text;
+
+  const ElevButtonHapus({super.key, required this.onPressed, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+      onPressed: onPressed,
+      child: Text(text, style: const TextStyle(color: Colors.white)),
     );
   }
 }

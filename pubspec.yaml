@@ -62,14 +62,28 @@ dependencies:
   open_filex: ^4.7.0
   image_picker: ^1.2.2
   printing: ^5.14.3
+  local_auth: ^3.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
-  hive_generator: ^2.0.0
-  build_runner: ^2.4.13
+  flutter_launcher_icons: "^0.13.1"
+  flutter_native_splash: "^2.4.0"
 
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo.jpg"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFF7F8"
+  adaptive_icon_foreground: "assets/images/logo.jpg"
+
+flutter_native_splash:
+  color: "#FFF7F8"
+  image: "assets/images/logo.jpg"
+  android: true
+  ios: true
+  fullscreen: true
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

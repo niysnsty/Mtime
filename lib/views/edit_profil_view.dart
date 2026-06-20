@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart'; // Package baru untuk galeri
+import 'package:image_picker/image_picker.dart'; 
 
 class EditProfilView extends StatefulWidget {
   const EditProfilView({super.key});
@@ -12,11 +12,10 @@ class EditProfilView extends StatefulWidget {
 
 class _EditProfilViewState extends State<EditProfilView> {
   final _namaController = TextEditingController();
-  final _emailController = TextEditingController();
+  // _emailController sudah dihapus
   final _haidController = TextEditingController();
   final _siklusController = TextEditingController();
   
-  // Variabel untuk menyimpan jalur (*path*) foto di HP
   String _imagePath = ''; 
 
   @override
@@ -29,11 +28,9 @@ class _EditProfilViewState extends State<EditProfilView> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _namaController.text = prefs.getString('nama') ?? '';
-      _emailController.text = prefs.getString('email') ?? '';
       _haidController.text = prefs.getString('rata_haid') ?? '7';
       _siklusController.text = prefs.getString('rata_siklus') ?? '28';
       
-      // Ambil path foto. Jika sebelumnya masih pakai link pravatar, kita kosongkan saja agar jadi icon default
       String savedPhoto = prefs.getString('user_photo') ?? '';
       if (savedPhoto.startsWith('http')) {
         _imagePath = '';
@@ -46,28 +43,25 @@ class _EditProfilViewState extends State<EditProfilView> {
   Future<void> _simpan() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nama', _namaController.text);
-    await prefs.setString('email', _emailController.text);
+    // Penyimpanan email dihapus
     await prefs.setString('rata_haid', _haidController.text);
     await prefs.setString('rata_siklus', _siklusController.text);
-    await prefs.setString('user_photo', _imagePath); // Simpan path foto
+    await prefs.setString('user_photo', _imagePath); 
 
     if (mounted) {
-      Navigator.pop(context, true); // Kirim sinyal ke halaman sebelumnya
+      Navigator.pop(context, true); 
     }
   }
 
-  // --- LOGIKA BUKA GALERI ASLI ---
   Future<void> _pilihFoto() async {
-    // Tutup bottom sheet terlebih dahulu
     Navigator.pop(context); 
     
-    // Buka galeri HP
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
       setState(() {
-        _imagePath = image.path; // Simpan jalur file asli dari HP
+        _imagePath = image.path; 
       });
     }
   }
@@ -85,13 +79,13 @@ class _EditProfilViewState extends State<EditProfilView> {
           ListTile(
             leading: const Icon(Icons.photo_library, color: Color(0xFF9E4770)),
             title: const Text('Pilih dari Galeri'),
-            onTap: _pilihFoto, // Panggil fungsi buka galeri
+            onTap: _pilihFoto, 
           ),
           ListTile(
             leading: const Icon(Icons.delete, color: Colors.red),
             title: const Text('Hapus Foto'),
             onTap: () {
-              setState(() => _imagePath = ''); // Mengosongkan foto
+              setState(() => _imagePath = ''); 
               Navigator.pop(context);
             },
           ),
@@ -101,17 +95,14 @@ class _EditProfilViewState extends State<EditProfilView> {
     );
   }
 
-  // Widget khusus untuk menampilkan Avatar atau Icon Default
   Widget _buildAvatar() {
     if (_imagePath.isEmpty) {
-      // Jika foto kosong (dihapus), tampilkan logo user abu-abu (seperti WA/IG)
       return CircleAvatar(
         radius: 50,
         backgroundColor: Colors.grey.shade300,
         child: const Icon(Icons.person, size: 60, color: Colors.white),
       );
     } else {
-      // Jika ada foto, tampilkan foto dari memori HP
       return CircleAvatar(
         radius: 50,
         backgroundImage: FileImage(File(_imagePath)),
@@ -138,7 +129,7 @@ class _EditProfilViewState extends State<EditProfilView> {
               onTap: _tampilkanMenuFoto,
               child: Stack(
                 children: [
-                  _buildAvatar(), // Panggil widget avatar dinamis
+                  _buildAvatar(), 
                   Positioned(
                     bottom: 0, right: 0, 
                     child: Container(
@@ -151,10 +142,12 @@ class _EditProfilViewState extends State<EditProfilView> {
               ),
             ),
             const SizedBox(height: 30),
+            
+            // Kolom Email Dihapus
             _buildField('Nama', _namaController),
-            _buildField('Email', _emailController),
             _buildField('Rata-rata Haid', _haidController, isNumber: true),
             _buildField('Rata-rata Siklus', _siklusController, isNumber: true),
+            
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity, height: 55,

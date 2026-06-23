@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import '../services/db_service.dart';
 import 'history_view.dart'; 
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AppDataNotifier {
   static final ValueNotifier<bool> refreshSignal = ValueNotifier<bool>(false);
@@ -266,18 +267,35 @@ class _KalenderViewState extends State<KalenderView> {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF7F8),
-      appBar: AppBar(title: const Text('Kalender', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.black87)), backgroundColor: Colors.transparent, elevation: 0),
-      floatingActionButton: FloatingActionButton(onPressed: () => _tampilkanMenuCatatan(context), backgroundColor: const Color(0xFF6A304C), elevation: 5, child: const Icon(Icons.add, color: Colors.white, size: 30)),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))]),
-              child: TableCalendar(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(title: const Text('Kalender', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Color(0xFF6A304C))), backgroundColor: Colors.transparent, elevation: 0, centerTitle: true),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120.0),
+        child: FloatingActionButton(onPressed: () => _tampilkanMenuCatatan(context), backgroundColor: const Color(0xFFD87093), elevation: 8, child: const Icon(Icons.add, color: Colors.white, size: 30)).animate().scale(delay: 500.ms),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFF7F8), Color(0xFFFCE4EC)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [Colors.white, Colors.white.withOpacity(0.9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: BorderRadius.circular(35), 
+                    boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.1), blurRadius: 25, offset: const Offset(0, 10))],
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: TableCalendar(
                 firstDay: DateTime.utc(2020, 1, 1), lastDay: DateTime.utc(2030, 12, 31), focusedDay: _focusedDay,
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                 onDaySelected: (selectedDay, focusedDay) { setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; }); },
@@ -288,7 +306,7 @@ class _KalenderViewState extends State<KalenderView> {
                   selectedBuilder: (context, day, focusedDay) { bool isToday = isSameDay(day, DateTime.now()); return _buildCustomDay(day, isSelected: true, isToday: isToday); },
                 ),
               ),
-            ),
+            ).animate().fade(duration: 600.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad),
             const SizedBox(height: 30),
 
             Padding(
@@ -302,11 +320,11 @@ class _KalenderViewState extends State<KalenderView> {
                   _buildLegendItem(Colors.grey, 'Ovulasi'),
                 ],
               ),
-            ),
+            ).animate().fade(delay: 200.ms),
             const SizedBox(height: 30),
 
-            Text(_selectedDay != null ? DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDay!) : 'Pilih Tanggal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-            const SizedBox(height: 12),
+            Text(_selectedDay != null ? DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDay!) : 'Pilih Tanggal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))).animate().fade(delay: 300.ms),
+            const SizedBox(height: 16),
             
             _selectedDay != null && _isHariHaid(_selectedDay!)
                 ? GestureDetector(
@@ -315,38 +333,40 @@ class _KalenderViewState extends State<KalenderView> {
                       _loadData(); 
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.pink.shade100)),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5))]),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.water_drop, color: Color(0xFFF48FB1)),
-                              const SizedBox(width: 10),
-                              Text(_getStatusHaidText(_selectedDay!), style: const TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.bold)),
+                              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.water_drop, color: Color(0xFFD87093), size: 20)),
+                              const SizedBox(width: 16),
+                              Text(_getStatusHaidText(_selectedDay!), style: const TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w600, fontSize: 15)),
                             ],
                           ),
                           const Icon(Icons.chevron_right, color: Color(0xFF9E4770)), 
                         ],
                       ),
                     ),
-                  )
+                  ).animate().fade(delay: 400.ms).slideX(begin: 0.1)
                 : Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.grey.shade200)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.6), borderRadius: BorderRadius.circular(25), border: Border.all(color: Colors.white)),
                     child: Row(
                       children: [
-                        Icon(Icons.event_busy, color: Colors.grey.shade400),
-                        const SizedBox(width: 10),
-                        const Text('Tidak ada riwayat pada tanggal ini.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+                        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: Icon(Icons.event_busy, color: Colors.grey.shade500, size: 20)),
+                        const SizedBox(width: 16),
+                        const Text('Tidak ada riwayat pada tanggal ini.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500, fontSize: 14)),
                       ],
                     ),
-                  ),
+                  ).animate().fade(delay: 400.ms).slideX(begin: 0.1),
 
-            const SizedBox(height: 100),
+            const SizedBox(height: 120),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

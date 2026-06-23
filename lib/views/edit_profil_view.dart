@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart'; 
+import 'package:permission_handler/permission_handler.dart';
 
 class EditProfilView extends StatefulWidget {
   const EditProfilView({super.key});
@@ -55,7 +56,25 @@ class _EditProfilViewState extends State<EditProfilView> {
 
   Future<void> _pilihFoto() async {
     Navigator.pop(context); 
+
+    // Minta izin ke OS sebelum membuka galeri
+    var status = await Permission.photos.status;
+    if (!status.isGranted) {
+      status = await Permission.photos.request();
+    }
     
+    // Fallback jika API <= 32 (menggunakan storage alih-alih photos)
+    if (!status.isGranted) {
+      var storageStatus = await Permission.storage.status;
+      if (!storageStatus.isGranted) {
+        storageStatus = await Permission.storage.request();
+        if (!storageStatus.isGranted) {
+          // Izin ditolak
+          return;
+        }
+      }
+    }
+
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     
@@ -104,6 +123,7 @@ class _EditProfilViewState extends State<EditProfilView> {
       );
     } else {
       return CircleAvatar(
+        key: ValueKey(_imagePath),
         radius: 50,
         backgroundImage: FileImage(File(_imagePath)),
         backgroundColor: Colors.transparent,

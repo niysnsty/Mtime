@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../services/db_service.dart';
 
 class AnalisisView extends StatefulWidget {
@@ -15,6 +16,8 @@ class _AnalisisViewState extends State<AnalisisView> {
   int _haidTerpendek = 0, _haidTerpanjang = 0;
   String _gejalaSering = 'Belum ada gejala tercatat.';
   String _rataSiklusProfil = '28';
+  List<FlSpot> _chartDataSiklus = [];
+  List<String> _chartLabels = [];
 
   @override
   void initState() {
@@ -68,6 +71,26 @@ class _AnalisisViewState extends State<AnalisisView> {
       topGejala = sortedGejala.take(3).map((e) => e.key).join(', ');
     }
 
+    // Siapkan data untuk Chart
+    List<FlSpot> spots = [];
+    List<String> labels = [];
+    int count = 0;
+    // Ambil maksimal 6 siklus yang sudah selesai (dari i=1 karena i=0 adalah siklus berjalan)
+    for (int i = 1; i < data.length && count < 6; i++) {
+      final tglMulai = DateTime.parse(data[i]['tanggal_mulai']);
+      final nextStart = DateTime.parse(data[i - 1]['tanggal_mulai']);
+      int durasi = nextStart.difference(tglMulai).inDays;
+
+      spots.insert(0, FlSpot(0, durasi.toDouble())); // insert di index 0 untuk membalik urutan (terlama ke terbaru)
+      labels.insert(0, '${tglMulai.day}/${tglMulai.month}');
+      count++;
+    }
+
+    // Sesuaikan koordinat X
+    for (int j = 0; j < spots.length; j++) {
+      spots[j] = FlSpot(j.toDouble(), spots[j].y);
+    }
+
     if (mounted) {
       setState(() {
         _siklusTerpendek = minCycle == 999 ? (int.tryParse(_rataSiklusProfil) ?? 28) : minCycle;
@@ -75,6 +98,8 @@ class _AnalisisViewState extends State<AnalisisView> {
         _haidTerpendek = minHaid == 999 ? 7 : minHaid;
         _haidTerpanjang = maxHaid == 0 ? 7 : maxHaid;
         _gejalaSering = topGejala;
+        _chartDataSiklus = spots;
+        _chartLabels = labels;
         _isLoading = false;
       });
     }
@@ -140,6 +165,9 @@ class _AnalisisViewState extends State<AnalisisView> {
             _buildCardInfo('Durasi Siklus', _siklusTerpendek, _siklusTerpanjang, 'Jarak antara hari pertama haid dengan haid berikutnya.'),
             const SizedBox(height: 30),
 
+            _buildChartSiklus(),
+            const SizedBox(height: 30),
+
             const Text('Gejala Paling Sering', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
             const SizedBox(height: 16),
             Container(
@@ -150,6 +178,76 @@ class _AnalisisViewState extends State<AnalisisView> {
             const SizedBox(height: 100),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildChartSiklus() {
+    if (_chartDataSiklus.isEmpty) {
+      return Container(
+        width: double.infinity, padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tren Durasi Siklus', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+            const SizedBox(height: 20),
+            Center(child: Text("Tambahkan lebih banyak riwayat (minimal 2) untuk melihat grafik tren siklus Anda.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade400))),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10))]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Tren Durasi Siklus', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 200,
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      getTitlesWidget: (value, meta) {
+                        int index = value.toInt();
+                        if (index >= 0 && index < _chartLabels.length) {
+                          return Padding(padding: const EdgeInsets.only(top: 8), child: Text(_chartLabels[index], style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)));
+                        }
+                        return const Text('');
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _chartDataSiklus,
+                    isCurved: true,
+                    color: const Color(0xFFD87093),
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: const Color(0xFFD87093).withOpacity(0.15),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

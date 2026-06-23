@@ -40,34 +40,48 @@ class _MainNavigationState extends State<MainNavigation> {
         });
       },
       child: Scaffold(
+        extendBody: true, // Konten dapat berada di belakang nav bar melayang
         body: _pages[_currentIndex],
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(color: Colors.pink.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, -5)),
-            ],
-          ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white, 
-            selectedItemColor: const Color(0xFFF48FB1), 
-            unselectedItemColor: Colors.grey[400],
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-            unselectedLabelStyle: const TextStyle(fontSize: 11),
-            elevation: 0,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.favorite_border), activeIcon: Icon(Icons.favorite), label: 'Hari Ini'),
-              BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: 'Kalender'),
-              BottomNavigationBarItem(icon: Icon(Icons.note_alt_outlined), activeIcon: Icon(Icons.note_alt), label: 'Catatan'),
-              BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Analisis'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profil'),
-            ],
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 12, bottom: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(35),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD87093).withOpacity(0.2), 
+                  blurRadius: 25, 
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(35),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: Colors.white, 
+                selectedItemColor: const Color(0xFFD87093), 
+                unselectedItemColor: Colors.grey.shade400,
+                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.2),
+                unselectedLabelStyle: const TextStyle(fontSize: 10),
+                elevation: 0,
+                showUnselectedLabels: true,
+                items: const [
+                  BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.favorite_border)), activeIcon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.favorite)), label: 'Hari Ini'),
+                  BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.calendar_month_outlined)), activeIcon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.calendar_month)), label: 'Kalender'),
+                  BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.note_alt_outlined)), activeIcon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.note_alt)), label: 'Catatan'),
+                  BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.analytics_outlined)), activeIcon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.analytics)), label: 'Analisis'),
+                  BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.person_outline)), activeIcon: Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.person)), label: 'Profil'),
+                ],
+              ),
+            ),
           ),
         ),
       ),

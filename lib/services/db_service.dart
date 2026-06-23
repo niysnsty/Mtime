@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:mtime/services/notification_service.dart';
 
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
@@ -38,7 +39,9 @@ class DatabaseService {
 
   Future<int> insertData(Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.insert('riwayat', row);
+    final result = await db.insert('riwayat', row);
+    NotificationService().updateScheduledNotifications();
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> readAllData() async {
@@ -49,13 +52,16 @@ class DatabaseService {
   Future<int> updateData(Map<String, dynamic> row) async {
     final db = await instance.database;
     int id = row['id'];
-    return await db.update('riwayat', row, where: 'id = ?', whereArgs: [id]);
+    final result = await db.update('riwayat', row, where: 'id = ?', whereArgs: [id]);
+    NotificationService().updateScheduledNotifications();
+    return result;
   }
 
   // --- FUNGSI BARU UNTUK MENGHAPUS SEMUA DATA ---
   Future<void> deleteAllData() async {
     final db = await instance.database;
     await db.delete('riwayat');
+    NotificationService().updateScheduledNotifications();
   }
 
   Future close() async {
@@ -65,6 +71,8 @@ class DatabaseService {
   // --- FUNGSI UNTUK MENGHAPUS DATA BERDASARKAN ID ---
   Future<int> deleteData(int id) async {
     final db = await instance.database;
-    return await db.delete('riwayat', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('riwayat', where: 'id = ?', whereArgs: [id]);
+    NotificationService().updateScheduledNotifications();
+    return result;
   }
 }

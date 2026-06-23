@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/db_service.dart';
 import 'edit_profil_view.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'kalender_view.dart'; // Import untuk menggunakan sinyal refresh global
 
 class HariIniView extends StatefulWidget {
@@ -167,26 +168,49 @@ class _HariIniViewState extends State<HariIniView> {
     }
   }
 
-  Widget _buildScrollableCard(String title, String mainValue, String subText, {double? progress}) {
+  Widget _buildScrollableCard(String title, String mainValue, String subText, {double? progress, int delayMs = 0}) {
     return Container(
-      width: 220, margin: const EdgeInsets.only(right: 16, bottom: 10, top: 5), padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))], border: Border.all(color: Colors.pink.withOpacity(0.1))),
+      width: 240, margin: const EdgeInsets.only(right: 20, bottom: 20, top: 10), padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white, Colors.white.withOpacity(0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(35), 
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFD87093).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))
+        ], 
+        border: Border.all(color: Colors.white, width: 2)
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Color(0xFF6A304C), fontSize: 14)),
-          const SizedBox(height: 8),
-          Text(mainValue, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF9E4770))),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.auto_awesome, size: 16, color: Color(0xFFD87093)),
+              ),
+              const SizedBox(width: 10),
+              Text(title, style: const TextStyle(color: Color(0xFF6A304C), fontSize: 13, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const Spacer(),
+          Text(mainValue, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF9E4770), height: 1.2)),
           if (progress != null) ...[
             const SizedBox(height: 16),
-            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, minHeight: 12, backgroundColor: const Color(0xFFFCE4EC), valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD87093)))),
+            ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: progress, minHeight: 8, backgroundColor: const Color(0xFFFCE4EC), valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD87093)))),
+            const SizedBox(height: 8),
+            Text(subText, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
           ] else ...[
-             const SizedBox(height: 16),
-             Text(subText, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+             const SizedBox(height: 8),
+             Text(subText, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
           ]
         ],
       ),
-    );
+    ).animate().fade(duration: 600.ms, delay: delayMs.ms).slideX(begin: 0.2, end: 0, curve: Curves.easeOutQuad);
   }
 
   @override
@@ -201,65 +225,91 @@ class _HariIniViewState extends State<HariIniView> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF7F8),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        GestureDetector(onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView())); _loadData(); }, child: _buildAvatar()),
-                        const SizedBox(width: 12),
-                        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Halo, $_namaUser', style: const TextStyle(fontSize: 12, color: Colors.grey)), const Text('MTime', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))]),
-                      ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFF7F8), Color(0xFFFCE4EC)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 30, 24, 10),
+                      child: Row(
+                        children: [
+                          GestureDetector(onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView())); _loadData(); }, child: _buildAvatar().animate().scale(delay: 200.ms)),
+                          const SizedBox(width: 16),
+                          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Halo, $_namaUser', style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500)), 
+                            const Text('Semoga harimu menyenangkan! 🌸', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))
+                          ]).animate().fade(delay: 300.ms).slideX(),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
 
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        isSedangHaid
-                            ? _buildScrollableCard('Sedang Menstruasi', 'Haid Hari ke-$_hariKe', 'Tetap terhidrasi', progress: progress)
-                            : _buildScrollableCard('Status Siklus', 'Selesai Haid', 'Rata-rata $_rataSiklus Hari'),
-                        _buildScrollableCard('Haid Berikutnya', _prediksiHaid, 'Estimasi kedatangan'),
-                        _buildScrollableCard('Masa Subur', _masaSubur, 'Peluang hamil tinggi'),
-                        _buildScrollableCard('Hari Ovulasi', _ovulasi, 'Puncak masa subur'),
-                      ],
+                    SizedBox(
+                      height: 250,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 24),
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          isSedangHaid
+                              ? _buildScrollableCard('Sedang Menstruasi', 'Haid Hari ke-$_hariKe', 'Tetap terhidrasi ya!', progress: progress, delayMs: 100)
+                              : _buildScrollableCard('Status Siklus', 'Selesai Haid', 'Rata-rata $_rataSiklus Hari', delayMs: 100),
+                          _buildScrollableCard('Haid Berikutnya', _prediksiHaid, 'Estimasi kedatangan', delayMs: 200),
+                          _buildScrollableCard('Masa Subur', _masaSubur, 'Peluang hamil tinggi', delayMs: 300),
+                          _buildScrollableCard('Hari Ovulasi', _ovulasi, 'Puncak masa subur', delayMs: 400),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 15),
 
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFF48FB1), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.water_drop_outlined, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text('$_rataHaid Hari', style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
-                        const SizedBox(width: 16),
-                        Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFFFCA28), borderRadius: BorderRadius.circular(25)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.sync_alt, color: Color(0xFF6A304C)), const SizedBox(height: 16), const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C), fontSize: 13)), const SizedBox(height: 4), Text('$_rataSiklus Hari', style: const TextStyle(color: Color(0xFF6A304C), fontSize: 24, fontWeight: FontWeight.bold))]))),
-                      ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Expanded(child: Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFF48FB1), Color(0xFFD87093)], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.water_drop, color: Colors.white)), const SizedBox(height: 20), const Text('Rata-rata Haid', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)), const SizedBox(height: 4), Text('$_rataHaid Hari', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold))])).animate().fade(delay: 500.ms).slideY(begin: 0.2)),
+                          const SizedBox(width: 16),
+                          Expanded(child: Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFFCA28), Color(0xFFFFA000)], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: const Color(0xFFFFA000).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8))]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.sync_alt, color: Colors.white)), const SizedBox(height: 20), const Text('Rata-rata Siklus', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)), const SizedBox(height: 4), Text('$_rataSiklus Hari', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold))])).animate().fade(delay: 600.ms).slideY(begin: 0.2)),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 100), 
-                ],
+                    const SizedBox(height: 120), 
+                  ],
+                ),
               ),
-            ),
 
-            Positioned(
-              bottom: 20, right: 20,
-              child: ElevatedButton.icon(
-                onPressed: _toggleHaid,
-                icon: Icon(isSedangHaid ? Icons.stop_circle_outlined : Icons.add_circle_outline, color: const Color(0xFF6A304C)),
-                label: Text(isSedangHaid ? 'Akhiri Haid' : 'Mulai Haid', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF6A304C))),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF48FB1), padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), elevation: 5, shadowColor: Colors.pinkAccent.withOpacity(0.5)),
+              Positioned(
+                bottom: 30, right: 24,
+                child: Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFFD87093).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10)),
+                    ]
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: _toggleHaid,
+                    icon: Icon(isSedangHaid ? Icons.stop_circle_rounded : Icons.add_circle_rounded, color: Colors.white),
+                    label: Text(isSedangHaid ? 'Akhiri Haid' : 'Mulai Haid', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white, letterSpacing: 0.5)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD87093), 
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18), 
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)), 
+                      elevation: 0, 
+                    ),
+                  ),
+                ).animate().fade(delay: 800.ms).scale(),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

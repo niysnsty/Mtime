@@ -1,4 +1,4 @@
-package com.example.mtime
+package com.niy.mtime
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

@@ -6,8 +6,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 
 import '../services/db_service.dart';
+import 'package:mtime/services/notification_service.dart';
 import 'edit_profil_view.dart';
-import 'kalender_view.dart'; 
+import 'package:flutter_animate/flutter_animate.dart';
+import 'kalender_view.dart';
 
 class ProfilView extends StatefulWidget {
   const ProfilView({super.key});
@@ -57,11 +59,11 @@ class _ProfilViewState extends State<ProfilView> {
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
     String savedPhoto = prefs.getString('user_photo') ?? '';
     
-    bool savedNotifHaid = prefs.getBool('notif_haid') ?? true;
+    bool savedNotifHaid = prefs.getBool('notif_haid') ?? false;
     bool savedNotifSubur = prefs.getBool('notif_subur') ?? false;
     
     // Membaca status sidik jari dari memori
-    bool savedFingerprint = prefs.getBool('is_biometric_enabled') ?? true;
+    bool savedFingerprint = prefs.getBool('is_biometric_enabled') ?? false;
 
     int dynamicAvgHaid = int.tryParse(savedHaid) ?? 7;
     int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
@@ -263,6 +265,7 @@ class _ProfilViewState extends State<ProfilView> {
       );
     } else {
       return Container(
+        key: ValueKey(_photo),
         width: 100, height: 100,
         decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.2), blurRadius: 10)], image: DecorationImage(image: FileImage(File(_photo)), fit: BoxFit.cover)),
       );
@@ -274,128 +277,165 @@ class _ProfilViewState extends State<ProfilView> {
     if (_isLoading) return const Scaffold(backgroundColor: Color(0xFFFFF7F8), body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF7F8),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.black87)),
-        backgroundColor: Colors.transparent, elevation: 0,
+        title: const Text('Profil', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Color(0xFF6A304C))),
+        backgroundColor: Colors.transparent, elevation: 0, centerTitle: true,
         actions: [
           IconButton(icon: const Icon(Icons.edit, color: Color(0xFF9E4770)), onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilView())); _loadData(); }),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Center(
-              child: Column(
-                children: [
-                  _buildAvatar(),
-                  const SizedBox(height: 16),
-                  Text(_namaUser, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-                  const SizedBox(height: 4),
-                  const Text('Aplikasi Mode Luring', style: TextStyle(color: Colors.grey, fontSize: 14)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFFFF7F8), Color(0xFFFCE4EC)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Center(
+                  child: Column(
+                    children: [
+                      _buildAvatar().animate().scale(delay: 200.ms, curve: Curves.easeOutBack),
+                      const SizedBox(height: 20),
+                      Text(_namaUser, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))).animate().fade(delay: 300.ms).slideY(begin: 0.5),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: const Color(0xFFD87093).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                        child: const Text('Aplikasi Mode Luring', style: TextStyle(color: Color(0xFFD87093), fontSize: 13, fontWeight: FontWeight.w600)),
+                      ).animate().fade(delay: 400.ms).slideY(begin: 0.5),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
 
-            Align(alignment: Alignment.centerLeft, child: Text('DATA SIKLUS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
-              child: Column(
-                children: [
-                  ListTile(leading: const Icon(Icons.water_drop_outlined, color: Color(0xFFF48FB1)), title: const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text('$_rataHaid Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  ListTile(leading: const Icon(Icons.calendar_month, color: Color(0xFFFFCA28)), title: const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text('$_rataSiklus Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  ListTile(leading: const Icon(Icons.event_available, color: Color(0xFFCE93D8)), title: const Text('Prediksi Berikutnya', style: TextStyle(color: Color(0xFF6A304C))), trailing: Text(_prediksiBerikutnya, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C)))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
+                Align(alignment: Alignment.centerLeft, child: Text('DATA SIKLUS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.5))).animate().fade(delay: 500.ms),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))]),
+                  child: Column(
+                    children: [
+                      ListTile(leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.water_drop_outlined, color: Color(0xFFD87093), size: 20)), title: const Text('Rata-rata Haid', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), trailing: Text('$_rataHaid Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C), fontSize: 16))),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      ListTile(leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.calendar_month, color: Color(0xFFFFCA28), size: 20)), title: const Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), trailing: Text('$_rataSiklus Hari', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C), fontSize: 16))),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      ListTile(leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.event_available, color: Color(0xFFCE93D8), size: 20)), title: const Text('Prediksi Berikutnya', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), trailing: Text(_prediksiBerikutnya, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF6A304C), fontSize: 15))),
+                    ],
+                  ),
+                ).animate().fade(duration: 600.ms, delay: 500.ms).slideY(begin: 0.1),
+                const SizedBox(height: 30),
 
-            Align(alignment: Alignment.centerLeft, child: Text('PREFERENSI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Notifikasi Haid', style: TextStyle(color: Color(0xFF6A304C))), secondary: const Icon(Icons.notifications_active_outlined, color: Color(0xFFF48FB1)), activeColor: const Color(0xFF9E4770),
-                    value: _notifikasiHaid, 
-                    onChanged: (bool value) async { 
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('notif_haid', value);
-                      setState(() { _notifikasiHaid = value; }); 
-                    },
+                Align(alignment: Alignment.centerLeft, child: Text('PREFERENSI', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.5))).animate().fade(delay: 600.ms),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))]),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        title: const Text('Notifikasi Haid', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), secondary: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.notifications_active_outlined, color: Color(0xFFD87093), size: 20)), activeColor: const Color(0xFF9E4770),
+                        value: _notifikasiHaid, 
+                        onChanged: (bool value) async { 
+                          if (value == true) {
+                            bool granted = await NotificationService().requestPermissions();
+                            if (!granted) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Izin notifikasi ditolak. Tidak dapat mengaktifkan notifikasi.')),
+                                );
+                              }
+                              return; // Batalkan perubahan state
+                            }
+                          }
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('notif_haid', value);
+                          setState(() { _notifikasiHaid = value; }); 
+                          await NotificationService().updateScheduledNotifications();
+                        },
+                      ),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      SwitchListTile(
+                        title: const Text('Notifikasi Masa Subur', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), secondary: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFFCE4EC), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.favorite_border, color: Color(0xFFD87093), size: 20)), activeColor: const Color(0xFF9E4770),
+                        value: _notifikasiSubur, 
+                        onChanged: (bool value) async { 
+                          if (value == true) {
+                            bool granted = await NotificationService().requestPermissions();
+                            if (!granted) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Izin notifikasi ditolak. Tidak dapat mengaktifkan notifikasi.')),
+                                );
+                              }
+                              return; // Batalkan perubahan state
+                            }
+                          }
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('notif_subur', value);
+                          setState(() { _notifikasiSubur = value; }); 
+                          await NotificationService().updateScheduledNotifications();
+                        },
+                      ),
+                    ],
                   ),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  SwitchListTile(
-                    title: const Text('Notifikasi Masa Subur', style: TextStyle(color: Color(0xFF6A304C))), secondary: const Icon(Icons.favorite_border, color: Color(0xFFF48FB1)), activeColor: const Color(0xFF9E4770),
-                    value: _notifikasiSubur, 
-                    onChanged: (bool value) async { 
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('notif_subur', value);
-                      setState(() { _notifikasiSubur = value; }); 
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
+                ).animate().fade(duration: 600.ms, delay: 600.ms).slideY(begin: 0.1),
+                const SizedBox(height: 30),
 
-            Align(alignment: Alignment.centerLeft, child: Text('KEAMANAN & AKUN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.2))),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 5))]),
-              child: Column(
-                children: [
-                  // --- TAMBAHAN SWITCH SIDIK JARI ---
-                  SwitchListTile(
-                    secondary: const Icon(Icons.fingerprint, color: Color(0xFF9E4770)),
-                    title: const Text('Kunci Aplikasi', style: TextStyle(color: Color(0xFF6A304C))),
-                    subtitle: const Text('Gunakan sidik jari saat membuka aplikasi', style: TextStyle(fontSize: 12)),
-                    activeColor: const Color(0xFF9E4770),
-                    value: _isFingerprintActive,
-                    onChanged: (bool value) async {
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('is_biometric_enabled', value);
-                      setState(() {
-                        _isFingerprintActive = value;
-                      });
-                    },
+                Align(alignment: Alignment.centerLeft, child: Text('KEAMANAN & AKUN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF9E4770).withOpacity(0.8), letterSpacing: 1.5))).animate().fade(delay: 700.ms),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25), boxShadow: [BoxShadow(color: const Color(0xFFD87093).withOpacity(0.08), blurRadius: 20, offset: const Offset(0, 10))]),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        secondary: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.fingerprint, color: Colors.blue, size: 20)),
+                        title: const Text('Kunci Aplikasi', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)),
+                        subtitle: const Text('Gunakan biometrik untuk membuka aplikasi', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        activeColor: const Color(0xFF9E4770),
+                        value: _isFingerprintActive,
+                        onChanged: (bool value) async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('is_biometric_enabled', value);
+                          setState(() {
+                            _isFingerprintActive = value;
+                          });
+                        },
+                      ),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      
+                      ListTile(
+                        leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.picture_as_pdf, color: Colors.grey, size: 20)), 
+                        title: const Text('Ekspor Data (PDF)', style: TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w500)), 
+                        trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                        onTap: _buatDanUnduhPDF 
+                      ),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      ListTile(
+                        leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.delete_sweep, color: Colors.redAccent, size: 20)), 
+                        title: const Text('Hapus Seluruh Data', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500)), 
+                        trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                        onTap: _konfirmasiHapusData
+                      ),
+                      const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
+                      ListTile(
+                        leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.person_off, color: Colors.red, size: 20)), 
+                        title: const Text('Hapus Akun', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
+                        trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
+                        onTap: _konfirmasiHapusAkun
+                      ),
+                    ],
                   ),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  // --- AKHIR TAMBAHAN SWITCH SIDIK JARI ---
-                  
-                  ListTile(
-                    leading: const Icon(Icons.picture_as_pdf, color: Colors.grey), 
-                    title: const Text('Ekspor Data (PDF)', style: TextStyle(color: Color(0xFF6A304C))), 
-                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
-                    onTap: _buatDanUnduhPDF 
-                  ),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  ListTile(
-                    leading: const Icon(Icons.delete_sweep, color: Colors.redAccent), 
-                    title: const Text('Hapus Seluruh Data', style: TextStyle(color: Colors.redAccent)), 
-                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
-                    onTap: _konfirmasiHapusData
-                  ),
-                  const Divider(height: 1, indent: 60, color: Color(0xFFFFF0F5)),
-                  ListTile(
-                    leading: const Icon(Icons.person_off, color: Colors.red), 
-                    title: const Text('Hapus Akun', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)), 
-                    trailing: const Icon(Icons.chevron_right, color: Colors.grey), 
-                    onTap: _konfirmasiHapusAkun
-                  ),
-                ],
-              ),
+                ).animate().fade(duration: 600.ms, delay: 700.ms).slideY(begin: 0.1),
+                
+                const SizedBox(height: 120),
+              ],
             ),
-            
-            const SizedBox(height: 100),
-          ],
+          ),
         ),
       ),
     );

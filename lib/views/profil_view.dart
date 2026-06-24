@@ -21,6 +21,7 @@ class ProfilView extends StatefulWidget {
 class _ProfilViewState extends State<ProfilView> {
   bool _isLoading = true;
   String _namaUser = 'Pengguna';
+  String _bioUser = '';
   String _rataHaid = '7';
   String _rataSiklus = '28';
   String _photo = '';
@@ -55,6 +56,7 @@ class _ProfilViewState extends State<ProfilView> {
     final data = await DatabaseService.instance.readAllData();
     
     String savedNama = prefs.getString('nama') ?? 'Pengguna';
+    String savedBio = prefs.getString('user_bio') ?? '';
     String savedHaid = prefs.getString('rata_haid') ?? '7';
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
     String savedPhoto = prefs.getString('user_photo') ?? '';
@@ -100,6 +102,7 @@ class _ProfilViewState extends State<ProfilView> {
     if (mounted) {
       setState(() {
         _namaUser = savedNama;
+        _bioUser = savedBio;
         _rataHaid = dynamicAvgHaid.toString();
         _rataSiklus = dynamicAvgSiklus.toString();
         _prediksiBerikutnya = prediksiDate;
@@ -120,51 +123,46 @@ class _ProfilViewState extends State<ProfilView> {
       final pdf = pw.Document();
 
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('Laporan Riwayat Siklus Menstruasi', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.pink800)),
-                pw.SizedBox(height: 10),
-                pw.Text('Nama: $_namaUser', style: const pw.TextStyle(fontSize: 14)),
-                pw.Text('Tanggal Cetak: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 14)),
-                pw.SizedBox(height: 20),
-                pw.Divider(),
-                pw.SizedBox(height: 20),
-                
-                if (data.isEmpty)
-                  pw.Text('Belum ada riwayat siklus yang tercatat.', style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey))
-                else
-                  pw.TableHelper.fromTextArray(
-                    context: context,
-                    headerDecoration: const pw.BoxDecoration(color: PdfColors.pink100),
-                    headerHeight: 40,
-                    cellHeight: 30,
-                    cellAlignments: {
-                      0: pw.Alignment.centerLeft,
-                      1: pw.Alignment.centerLeft,
-                      2: pw.Alignment.centerLeft,
-                    },
-                    headers: ['Tanggal Mulai', 'Tanggal Selesai', 'Gejala Tercatat'],
-                    data: data.map((item) {
-                      DateTime start = DateTime.parse(item['tanggal_mulai']);
-                      String strMulai = DateFormat('dd MMM yyyy').format(start);
-                      
-                      String strSelesai = 'Masih haid';
-                      if (item['tanggal_selesai'] != null) {
-                        DateTime end = DateTime.parse(item['tanggal_selesai']);
-                        strSelesai = DateFormat('dd MMM yyyy').format(end);
-                      }
-                      
-                      String gejala = item['gejala'] ?? '-';
-                      
-                      return [strMulai, strSelesai, gejala];
-                    }).toList(),
-                  ),
-              ],
-            );
+            return [
+              pw.Text('Laporan Riwayat Siklus Menstruasi', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.pink800)),
+              pw.SizedBox(height: 10),
+              pw.Text('Nama: $_namaUser', style: const pw.TextStyle(fontSize: 14)),
+              pw.Text('Tanggal Cetak: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 14)),
+              pw.SizedBox(height: 20),
+              pw.Divider(),
+              pw.SizedBox(height: 20),
+              
+              if (data.isEmpty)
+                pw.Text('Belum ada riwayat siklus yang tercatat.', style: const pw.TextStyle(fontSize: 14, color: PdfColors.grey))
+              else
+                pw.TableHelper.fromTextArray(
+                  context: context,
+                  headerDecoration: const pw.BoxDecoration(color: PdfColors.pink100),
+                  cellAlignments: {
+                    0: pw.Alignment.centerLeft,
+                    1: pw.Alignment.centerLeft,
+                    2: pw.Alignment.centerLeft,
+                  },
+                  headers: <dynamic>['Tanggal Mulai', 'Tanggal Selesai', 'Gejala Tercatat'],
+                  data: data.map<List<dynamic>>((item) {
+                    DateTime start = DateTime.parse(item['tanggal_mulai']);
+                    String strMulai = DateFormat('dd MMM yyyy').format(start);
+                    
+                    String strSelesai = 'Masih haid';
+                    if (item['tanggal_selesai'] != null) {
+                      DateTime end = DateTime.parse(item['tanggal_selesai']);
+                      strSelesai = DateFormat('dd MMM yyyy').format(end);
+                    }
+                    
+                    String gejala = item['gejala'] ?? '-';
+                    
+                    return <dynamic>[strMulai, strSelesai, gejala];
+                  }).toList(),
+                ),
+            ];
           },
         ),
       );
@@ -305,11 +303,14 @@ class _ProfilViewState extends State<ProfilView> {
                       _buildAvatar().animate().scale(delay: 200.ms, curve: Curves.easeOutBack),
                       const SizedBox(height: 20),
                       Text(_namaUser, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))).animate().fade(delay: 300.ms).slideY(begin: 0.5),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: const Color(0xFFD87093).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                        child: const Text('Aplikasi Mode Luring', style: TextStyle(color: Color(0xFFD87093), fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          _bioUser.isNotEmpty ? _bioUser : 'Tambahkan bio tentang dirimu...', 
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: _bioUser.isNotEmpty ? const Color(0xFF6A304C).withOpacity(0.8) : Colors.grey, fontSize: 14, height: 1.4),
+                        ),
                       ).animate().fade(delay: 400.ms).slideY(begin: 0.5),
                     ],
                   ),

@@ -17,6 +17,7 @@ class _HariIniViewState extends State<HariIniView> {
   bool _isLoading = true;
   Map<String, dynamic>? _haidAktif; 
   int _hariKe = 0;
+  int _sisaHariKeHaid = 0;
   String _rataHaid = '7'; 
   String _rataSiklus = '28'; 
   String _prediksiHaid = '-';
@@ -112,6 +113,11 @@ class _HariIniViewState extends State<HariIniView> {
       final nextHaid = haidTerbaru.add(Duration(days: dynamicAvgSiklus));
       _prediksiHaid = '${nextHaid.day} ${_namaBulanSingkat(nextHaid.month)}';
       
+      DateTime now = DateTime.now();
+      DateTime today = DateTime(now.year, now.month, now.day);
+      DateTime nextHaidDate = DateTime(nextHaid.year, nextHaid.month, nextHaid.day);
+      int sisaHari = nextHaidDate.difference(today).inDays;
+      
       final ovulasiDate = nextHaid.subtract(const Duration(days: 14));
       _ovulasi = '${ovulasiDate.day} ${_namaBulanSingkat(ovulasiDate.month)}';
       
@@ -123,8 +129,19 @@ class _HariIniViewState extends State<HariIniView> {
       } else {
         _masaSubur = '${suburMulai.day} ${_namaBulanSingkat(suburMulai.month)} - ${suburSelesai.day} ${_namaBulanSingkat(suburSelesai.month)}';
       }
+      
+      if (mounted) {
+        setState(() {
+          _sisaHariKeHaid = sisaHari;
+        });
+      }
     } else {
       _hariKe = 0;
+      if (mounted) {
+        setState(() {
+          _sisaHariKeHaid = 0;
+        });
+      }
     }
 
     if (mounted) {
@@ -263,7 +280,7 @@ class _HariIniViewState extends State<HariIniView> {
                         children: [
                           isSedangHaid
                               ? _buildScrollableCard('Sedang Menstruasi', 'Haid Hari ke-$_hariKe', 'Tetap terhidrasi ya!', progress: progress, delayMs: 100)
-                              : _buildScrollableCard('Status Siklus', 'Selesai Haid', 'Rata-rata $_rataSiklus Hari', delayMs: 100),
+                              : _buildScrollableCard('Status Siklus', _sisaHariKeHaid > 0 ? 'Haid $_sisaHariKeHaid hari lagi' : (_sisaHariKeHaid == 0 ? 'Haid hari ini' : 'Terlambat ${_sisaHariKeHaid.abs()} hari'), 'Rata-rata $_rataSiklus Hari', delayMs: 100),
                           _buildScrollableCard('Haid Berikutnya', _prediksiHaid, 'Estimasi kedatangan', delayMs: 200),
                           _buildScrollableCard('Masa Subur', _masaSubur, 'Peluang hamil tinggi', delayMs: 300),
                           _buildScrollableCard('Hari Ovulasi', _ovulasi, 'Puncak masa subur', delayMs: 400),

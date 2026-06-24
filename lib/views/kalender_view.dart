@@ -26,6 +26,7 @@ class _KalenderViewState extends State<KalenderView> {
   List<Map<String, dynamic>> _riwayatData = [];
   bool _isLoading = true;
   int _rataSiklus = 28;
+  int _rataHaid = 7;
 
   @override
   void initState() {
@@ -45,9 +46,11 @@ class _KalenderViewState extends State<KalenderView> {
     final prefs = await SharedPreferences.getInstance();
     final data = await DatabaseService.instance.readAllData();
     String savedSiklus = prefs.getString('rata_siklus') ?? '28';
+    String savedHaid = prefs.getString('rata_haid') ?? '7';
     
     // --- ALGORITMA SMART LEARNING UNTUK KALENDER ---
     int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
+    int dynamicAvgHaid = int.tryParse(savedHaid) ?? 7;
 
     if (data.isNotEmpty) {
       int totalSiklusDays = 0;
@@ -63,11 +66,26 @@ class _KalenderViewState extends State<KalenderView> {
           dynamicAvgSiklus = (totalSiklusDays / cycleCount).round();
         }
       }
+      
+      int totalHaidDays = 0;
+      int completedHaidCount = 0;
+      for (var item in data) {
+        if (item['tanggal_selesai'] != null) {
+          DateTime start = DateTime.parse(item['tanggal_mulai']);
+          DateTime end = DateTime.parse(item['tanggal_selesai']);
+          totalHaidDays += end.difference(start).inDays + 1;
+          completedHaidCount++;
+        }
+      }
+      if (completedHaidCount > 0) {
+        dynamicAvgHaid = (totalHaidDays / completedHaidCount).round();
+      }
     }
 
     if (mounted) {
       setState(() {
         _rataSiklus = dynamicAvgSiklus; // Sekarang menggunakan nilai 34 Hari (Dinamis)
+        _rataHaid = dynamicAvgHaid;
         _riwayatData = data;
         _isLoading = false;
       });
@@ -98,6 +116,18 @@ class _KalenderViewState extends State<KalenderView> {
     return false;
   }
 
+  bool _isPrediksiHaid(DateTime day) {
+    if (_riwayatData.isEmpty) return false;
+    final startTerbaru = DateTime.parse(_riwayatData.first['tanggal_mulai']);
+    final startDate = DateTime(startTerbaru.year, startTerbaru.month, startTerbaru.day);
+    final nextHaidMulai = startDate.add(Duration(days: _rataSiklus));
+    final nextHaidSelesai = nextHaidMulai.add(Duration(days: _rataHaid - 1));
+    
+    final dateToCheck = DateTime(day.year, day.month, day.day);
+    return (dateToCheck.isAtSameMomentAs(nextHaidMulai) || dateToCheck.isAfter(nextHaidMulai)) && 
+           (dateToCheck.isAtSameMomentAs(nextHaidSelesai) || dateToCheck.isBefore(nextHaidSelesai));
+  }
+
   String _getStatusHaidText(DateTime day) {
     for (var item in _riwayatData) {
       final start = DateTime.parse(item['tanggal_mulai']);
@@ -122,6 +152,9 @@ class _KalenderViewState extends State<KalenderView> {
           return 'Sedang Menstruasi';
         }
       }
+    }
+    if (_isPrediksiHaid(day)) {
+      return 'Prediksi Menstruasi';
     }
     return 'Tidak ada riwayat pada tanggal ini.';
   }
@@ -233,8 +266,11 @@ class _KalenderViewState extends State<KalenderView> {
   }
 
   Widget _buildCustomDay(DateTime day, {bool isSelected = false, bool isToday = false}) {
+    bool isHaid = _isHariHaid(day);
+    bool isPrediksi = _isPrediksiHaid(day);
+    
     TextStyle textStyle = TextStyle(
-      color: _isHariHaid(day) ? Colors.white : const Color(0xFF6A304C),
+      color: (isHaid || isPrediksi) ? Colors.white : const Color(0xFF6A304C),
       fontWeight: (isToday || isSelected) ? FontWeight.bold : FontWeight.normal,
     );
 
@@ -242,18 +278,18 @@ class _KalenderViewState extends State<KalenderView> {
       margin: const EdgeInsets.all(5.0), 
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: _isHariHaid(day) ? const Color(0xFFF48FB1) : (isSelected ? const Color(0xFFFFF0F5) : Colors.transparent),
+        color: isHaid ? const Color(0xFFF48FB1) : (isPrediksi ? const Color(0xFFF48FB1).withOpacity(0.5) : (isSelected ? const Color(0xFFFFF0F5) : Colors.transparent)),
         shape: BoxShape.circle,
         border: isToday 
             ? Border.all(color: const Color(0xFF9E4770), width: 2.5) 
-            : (isSelected && !_isHariHaid(day) ? Border.all(color: const Color(0xFF9E4770).withOpacity(0.5), width: 1.5) : null),
+            : (isSelected && !isHaid && !isPrediksi ? Border.all(color: const Color(0xFF9E4770).withOpacity(0.5), width: 1.5) : null),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text('${day.day}', style: textStyle),
           const SizedBox(height: 1),
-          if (!_isHariHaid(day)) ...[
+          if (!isHaid && !isPrediksi) ...[
              if (_isMasaSubur(day)) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFFFFCA28), shape: BoxShape.circle)),
              if (_isOvulasi(day)) Container(width: 5, height: 5, decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle)),
           ]
@@ -315,6 +351,7 @@ class _KalenderViewState extends State<KalenderView> {
                 spacing: 20, runSpacing: 15,
                 children: [
                   _buildLegendItem(const Color(0xFFF48FB1), 'Menstruasi'),
+                  _buildLegendItem(const Color(0xFFF48FB1).withOpacity(0.5), 'Prediksi Haid'),
                   _buildLegendItem(const Color(0xFFFFCA28), 'Masa Subur'),
                   _buildLegendItem(Colors.transparent, 'Hari Ini', isBorder: true),
                   _buildLegendItem(Colors.grey, 'Ovulasi'),
@@ -326,11 +363,13 @@ class _KalenderViewState extends State<KalenderView> {
             Text(_selectedDay != null ? DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDay!) : 'Pilih Tanggal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))).animate().fade(delay: 300.ms),
             const SizedBox(height: 16),
             
-            _selectedDay != null && _isHariHaid(_selectedDay!)
+            _selectedDay != null && (_isHariHaid(_selectedDay!) || _isPrediksiHaid(_selectedDay!))
                 ? GestureDetector(
                     onTap: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryView()));
-                      _loadData(); 
+                      if (_isHariHaid(_selectedDay!)) {
+                        await Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryView()));
+                        _loadData(); 
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -345,7 +384,7 @@ class _KalenderViewState extends State<KalenderView> {
                               Text(_getStatusHaidText(_selectedDay!), style: const TextStyle(color: Color(0xFF6A304C), fontWeight: FontWeight.w600, fontSize: 15)),
                             ],
                           ),
-                          const Icon(Icons.chevron_right, color: Color(0xFF9E4770)), 
+                          if (_isHariHaid(_selectedDay!)) const Icon(Icons.chevron_right, color: Color(0xFF9E4770)), 
                         ],
                       ),
                     ),

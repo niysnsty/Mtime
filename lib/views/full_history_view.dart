@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart'; 
 import '../services/db_service.dart';
-import 'kalender_view.dart'; 
-import 'full_history_view.dart';
+import 'kalender_view.dart';
 
-class HistoryView extends StatefulWidget {
-  const HistoryView({super.key});
+class FullHistoryView extends StatefulWidget {
+  const FullHistoryView({super.key});
 
   @override
-  State<HistoryView> createState() => _HistoryViewState();
+  State<FullHistoryView> createState() => _FullHistoryViewState();
 }
 
-class _HistoryViewState extends State<HistoryView> {
+class _FullHistoryViewState extends State<FullHistoryView> {
   List<Map<String, dynamic>> _riwayatData = [];
   bool _isLoading = true;
-  String _rataSiklus = '28'; 
+  String _rataSiklus = '28';
 
   @override
   void initState() {
@@ -32,12 +30,9 @@ class _HistoryViewState extends State<HistoryView> {
 
   Future<void> _loadData() async {
     final data = await DatabaseService.instance.readAllData();
-    final prefs = await SharedPreferences.getInstance();
-    String savedSiklus = prefs.getString('rata_siklus') ?? '28';
-
-    // ALGORITMA SMART LEARNING UNTUK RIWAYAT
-    int dynamicAvgSiklus = int.tryParse(savedSiklus) ?? 28;
-
+    // Simplified logic since it's just the full list, but we still need rataSiklus for display.
+    // For consistency, we calculate dynamicAvgSiklus similarly.
+    int dynamicAvgSiklus = 28;
     if (data.isNotEmpty) {
       int totalSiklusDays = 0;
       int cycleCount = 0;
@@ -56,7 +51,7 @@ class _HistoryViewState extends State<HistoryView> {
 
     if (mounted) {
       setState(() {
-        _rataSiklus = dynamicAvgSiklus.toString(); 
+        _rataSiklus = dynamicAvgSiklus.toString();
         _riwayatData = data;
         _isLoading = false;
       });
@@ -279,40 +274,22 @@ class _HistoryViewState extends State<HistoryView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF7F8),
-      appBar: AppBar(title: const Text('MTime', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.black87)), backgroundColor: Colors.transparent, elevation: 0),
+      appBar: AppBar(
+        title: const Text('Seluruh Riwayat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.black87)), 
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Riwayat Siklus', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF6A304C))),
-            const SizedBox(height: 8),
-            const Text('Pantau perjalanan kesehatan dan keteraturan siklus bulanan Anda secara menyeluruh.', style: TextStyle(color: Colors.grey, fontSize: 14, height: 1.5)),
-            const SizedBox(height: 24),
-
-            Container(
-              width: double.infinity, padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: const Color(0xFFFFF0F5), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.pink.withOpacity(0.1))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text('Rata-rata Siklus', style: TextStyle(color: Color(0xFF9E4770), fontSize: 18, fontWeight: FontWeight.bold)), Icon(Icons.auto_graph, color: Color(0xFF9E4770))]),
-                  const SizedBox(height: 16),
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [Text(_rataSiklus, style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF6A304C), height: 1)), const SizedBox(width: 8), const Padding(padding: EdgeInsets.only(bottom: 6), child: Text('Hari', style: TextStyle(color: Colors.grey, fontSize: 16)))]),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
             _riwayatData.isEmpty
                 ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text("Belum ada riwayat siklus.", style: TextStyle(color: Colors.grey))))
-                : Column(
-                    children: [
-                      ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
-                        itemCount: _riwayatData.length > 3 ? 3 : _riwayatData.length,
-                        itemBuilder: (context, index) {
+                : ListView.builder(
+                    shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: _riwayatData.length,
+                    itemBuilder: (context, index) {
                       final item = _riwayatData[index];
                       final tglMulai = DateTime.parse(item['tanggal_mulai']);
                       final tglSelesai = item['tanggal_selesai'] != null ? DateTime.parse(item['tanggal_selesai']) : null;
@@ -321,7 +298,6 @@ class _HistoryViewState extends State<HistoryView> {
                       
                       if (index < _riwayatData.length - 1) {
                          final nextStart = DateTime.parse(_riwayatData[index + 1]['tanggal_mulai']);
-                         // Hitung jarak dari bulan sebelumnya ke bulan ini (mengingat list diurutkan DESC)
                          durasiSiklus = tglMulai.difference(nextStart).inDays;
                       }
 
@@ -363,21 +339,7 @@ class _HistoryViewState extends State<HistoryView> {
                       );
                     },
                   ),
-                      if (_riwayatData.length > 3)
-                        TextButton(
-                          onPressed: () {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const FullHistoryView()));
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF9E4770),
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                            ),
-                            child: const Text('Lihat Semua Siklus', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          ),
-                    ],
-                  ),
-            const SizedBox(height: 100),
+            const SizedBox(height: 40),
           ],
         ),
       ),

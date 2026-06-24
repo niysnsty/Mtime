@@ -13,6 +13,7 @@ class EditProfilView extends StatefulWidget {
 
 class _EditProfilViewState extends State<EditProfilView> {
   final _namaController = TextEditingController();
+  final _bioController = TextEditingController();
   // _emailController sudah dihapus
   final _haidController = TextEditingController();
   final _siklusController = TextEditingController();
@@ -29,6 +30,7 @@ class _EditProfilViewState extends State<EditProfilView> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _namaController.text = prefs.getString('nama') ?? '';
+      _bioController.text = prefs.getString('user_bio') ?? '';
       _haidController.text = prefs.getString('rata_haid') ?? '7';
       _siklusController.text = prefs.getString('rata_siklus') ?? '28';
       
@@ -44,6 +46,7 @@ class _EditProfilViewState extends State<EditProfilView> {
   Future<void> _simpan() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('nama', _namaController.text);
+    await prefs.setString('user_bio', _bioController.text);
     // Penyimpanan email dihapus
     await prefs.setString('rata_haid', _haidController.text);
     await prefs.setString('rata_siklus', _siklusController.text);
@@ -165,6 +168,7 @@ class _EditProfilViewState extends State<EditProfilView> {
             
             // Kolom Email Dihapus
             _buildField('Nama', _namaController),
+            _buildField('Bio', _bioController, maxLines: 3),
             _buildField('Rata-rata Haid', _haidController, isNumber: true),
             _buildField('Rata-rata Siklus', _siklusController, isNumber: true),
             
@@ -183,7 +187,7 @@ class _EditProfilViewState extends State<EditProfilView> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, {bool isNumber = false}) {
+  Widget _buildField(String label, TextEditingController controller, {bool isNumber = false, int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -193,7 +197,8 @@ class _EditProfilViewState extends State<EditProfilView> {
           const SizedBox(height: 8),
           TextField(
             controller: controller,
-            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            keyboardType: isNumber ? TextInputType.number : (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
+            maxLines: maxLines,
             decoration: InputDecoration(
               filled: true, fillColor: Colors.white, 
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),

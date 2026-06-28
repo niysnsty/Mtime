@@ -8,6 +8,7 @@
     <!-- Izin untuk mengakses Galeri (Foto Profil) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <application
         android:label="mtime"
         android:name="${applicationName}"
